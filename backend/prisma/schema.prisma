@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Client {
+  id           String      @id @default(uuid())
+  name         String
+  phone        String
+  email        String?
+  instagram    String?
+  birthDate    DateTime?
+  address      String?
+  city         String?
+  allergies    String?
+  medicalNotes String?
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  tags         ClientTag[]
+  tattoos      Tattoo[]
+  references   Reference[]
+  appointments Appointment[]
+}
+
+model Tag {
+  id      String      @id @default(uuid())
+  name    String      @unique
+  color   String
+  clients ClientTag[]
+}
+
+model ClientTag {
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId    String
+
+  @@id([clientId, tagId])
+}
+
+model Tattoo {
+  id          String    @id @default(uuid())
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId    String
+  description String
+  bodyPart    String
+  date        DateTime?
+  price       Float?
+  notes       String?
+  images      String    @default("[]")
+  createdAt   DateTime  @default(now())
+}
+
+model Reference {
+  id        String   @id @default(uuid())
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId  String
+  imageUrl  String
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model Appointment {
+  id              String    @id @default(uuid())
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId        String
+  title           String
+  description     String?
+  date            DateTime
+  startTime       String    // HH:mm format
+  estimatedHours  Float     // Estimated duration in hours
+  status          String    @default("scheduled") // scheduled, confirmed, in_progress, completed, cancelled
+  price           Float?
+  depositAmount   Float?    // Valor do sinal
+  depositPaid     Boolean   @default(false) // Se o sinal foi pago
+  depositPaidAt   DateTime? // Data do pagamento do sinal
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}

@@ -1,0 +1,7 @@
+export { default as Dashboard } from './Dashboard'
+export { default as Clients } from './Clients'
+export { default as ClientForm } from './ClientForm'
+export { default as ClientDetail } from './ClientDetail'
+export { default as Appointments } from './Appointments'
+export { default as Tags } from './Tags'
+export { default as Settings } from './Settings'
