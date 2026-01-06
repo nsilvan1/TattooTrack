@@ -7,9 +7,6 @@ import {
   Plus,
   Clock,
   User,
-  Phone,
-  Instagram,
-  X,
   Save,
   Trash2,
   CheckCircle,
@@ -79,7 +76,7 @@ export default function Appointments() {
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1
 
-  const { data: appointments = [], isLoading } = useQuery({
+  const { data: appointments = [] } = useQuery({
     queryKey: ['appointments', year, month],
     queryFn: () => appointmentsApi.getByMonth(year, month),
   })

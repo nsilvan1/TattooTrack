@@ -16,7 +16,7 @@ import {
   Plus,
   X,
 } from 'lucide-react'
-import { Button, Card, CardContent, Avatar, Tag, Modal, Input, Textarea } from '../components/ui'
+import { Button, Card, CardContent, Avatar, Tag, Modal, Textarea } from '../components/ui'
 import { clientsApi, tagsApi, referencesApi } from '../services/api'
 import { formatDate } from '../utils/date'
 import type { Tag as TagType } from '../types'

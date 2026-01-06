@@ -29,7 +29,7 @@ export default function Tag({ name, color, onRemove, onClick, size = 'md', selec
         backgroundColor: `${color}20`,
         color: color,
         borderColor: color,
-        ringColor: selected ? color : undefined,
+        ['--tw-ring-color' as string]: selected ? color : undefined,
       }}
       onClick={onClick}
     >

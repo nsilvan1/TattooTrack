@@ -189,7 +189,7 @@ export default function Tags() {
                   className={`w-8 h-8 rounded-full transition-all ${
                     tagColor === color ? 'ring-2 ring-offset-2 ring-offset-surface' : ''
                   }`}
-                  style={{ backgroundColor: color, ringColor: color }}
+                  style={{ backgroundColor: color, ['--tw-ring-color' as string]: color }}
                 />
               ))}
             </div>

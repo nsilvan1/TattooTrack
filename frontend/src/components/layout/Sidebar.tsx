@@ -62,7 +62,7 @@ export default function Sidebar() {
             )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-text-primary truncate">{user.name}</p>
-              <p className="text-xs text-text-secondary truncate">{user.email}</p>
+              <p className="text-xs text-text-secondary truncate">@{user.username}</p>
             </div>
           </div>
         )}
