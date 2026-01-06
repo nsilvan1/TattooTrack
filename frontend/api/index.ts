@@ -243,7 +243,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { code, state: userId } = req.query as { code: string; state: string }
 
       if (!code || !userId) {
-        return res.redirect('/configuracoes?error=missing_params')
+        return res.redirect('/settings?error=missing_params')
       }
 
       try {
@@ -259,10 +259,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         })
 
-        return res.redirect('/configuracoes?google=connected')
+        return res.redirect('/settings?google=connected')
       } catch (error) {
         console.error('Google OAuth callback error:', error)
-        return res.redirect('/configuracoes?error=oauth_failed')
+        return res.redirect('/settings?error=oauth_failed')
       }
     }
 

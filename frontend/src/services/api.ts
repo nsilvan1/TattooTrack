@@ -5,6 +5,15 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
 })
 
+// Interceptor para adicionar token em todas as requisições
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
 // Clients
 export const clientsApi = {
   list: async (filters?: ClientFilters, page = 1, limit = 10): Promise<PaginatedResponse<Client>> => {
