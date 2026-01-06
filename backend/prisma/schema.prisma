@@ -3,12 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
 }
 
 model Client {
-  id           String      @id @default(uuid())
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
   name         String
   phone        String
   email        String?
@@ -29,25 +29,26 @@ model Client {
 }
 
 model Tag {
-  id      String      @id @default(uuid())
+  id      String      @id @default(auto()) @map("_id") @db.ObjectId
   name    String      @unique
   color   String
   clients ClientTag[]
 }
 
 model ClientTag {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
   client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  clientId String
+  clientId String @db.ObjectId
   tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  tagId    String
+  tagId    String @db.ObjectId
 
-  @@id([clientId, tagId])
+  @@unique([clientId, tagId])
 }
 
 model Tattoo {
-  id          String    @id @default(uuid())
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
   client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  clientId    String
+  clientId    String    @db.ObjectId
   description String
   bodyPart    String
   date        DateTime?
@@ -58,18 +59,18 @@ model Tattoo {
 }
 
 model Reference {
-  id        String   @id @default(uuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  clientId  String
+  clientId  String   @db.ObjectId
   imageUrl  String
   notes     String?
   createdAt DateTime @default(now())
 }
 
 model Appointment {
-  id              String    @id @default(uuid())
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
   client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  clientId        String
+  clientId        String    @db.ObjectId
   title           String
   description     String?
   date            DateTime
@@ -87,7 +88,7 @@ model Appointment {
 }
 
 model User {
-  id                  String    @id @default(uuid())
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
   username            String    @unique
   password            String    // Senha criptografada
   name                String

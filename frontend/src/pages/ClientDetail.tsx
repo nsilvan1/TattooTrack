@@ -286,7 +286,7 @@ export default function ClientDetail() {
                   {client.references.map((ref) => (
                     <div key={ref.id} className="relative group">
                       <img
-                        src={`http://localhost:3333${ref.imageUrl}`}
+                        src={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3333'}${ref.imageUrl}`}
                         alt="Referência"
                         className="w-full h-24 object-cover rounded-lg"
                       />
