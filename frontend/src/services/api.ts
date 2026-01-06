@@ -2,7 +2,7 @@ import axios from 'axios'
 import type { Client, CreateClientData, UpdateClientData, Tag, PaginatedResponse, ClientFilters, Tattoo, Reference, Appointment, CreateAppointmentData, UpdateAppointmentData, AppointmentFilters, AppointmentStatus } from '../types'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3333/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
 })
 
 // Clients
