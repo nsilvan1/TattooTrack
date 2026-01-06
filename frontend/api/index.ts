@@ -210,12 +210,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },
-        select: { calendarConnected: true, googleAccessToken: true, googleEmail: true }
+        select: { calendarConnected: true, googleAccessToken: true, googleEmail: true, lastSyncAt: true }
       })
 
       return res.json({
         connected: user?.calendarConnected || false,
-        email: user?.googleEmail || null
+        email: user?.googleEmail || null,
+        lastSyncAt: user?.lastSyncAt || null
       })
     }
 
@@ -347,16 +348,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Filtrar eventos que não existem no TattooTrack
         const newEvents = googleEvents.filter(event => event.id && !existingEventIds.has(event.id))
 
+        // Buscar ou criar cliente "Google Calendar" para eventos importados
+        let googleClient = await prisma.client.findFirst({
+          where: { name: 'Google Calendar (Importado)' }
+        })
+
+        if (!googleClient) {
+          googleClient = await prisma.client.create({
+            data: {
+              name: 'Google Calendar (Importado)',
+              phone: '-',
+              notes: 'Cliente automático para eventos importados do Google Calendar'
+            }
+          })
+        }
+
+        // Importar novos eventos como agendamentos
+        let importedCount = 0
+        for (const event of newEvents) {
+          if (!event.start?.dateTime && !event.start?.date) continue
+
+          // Extrair data e hora do evento
+          const startDate = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date!)
+          const endDate = event.end?.dateTime ? new Date(event.end.dateTime) : (event.end?.date ? new Date(event.end.date) : startDate)
+
+          // Calcular duração em horas
+          const durationMs = endDate.getTime() - startDate.getTime()
+          const estimatedHours = Math.max(1, durationMs / (1000 * 60 * 60))
+
+          // Extrair hora de início
+          const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`
+
+          await prisma.appointment.create({
+            data: {
+              clientId: googleClient.id,
+              title: event.summary || 'Evento Google Calendar',
+              description: event.description || null,
+              date: startDate,
+              startTime,
+              estimatedHours,
+              status: 'scheduled',
+              googleEventId: event.id,
+              notes: 'Importado automaticamente do Google Calendar'
+            }
+          })
+          importedCount++
+        }
+
+        // Atualizar data da última sincronização
+        await prisma.user.update({
+          where: { id: decoded.userId },
+          data: { lastSyncAt: new Date() }
+        })
+
         return res.json({
           totalGoogleEvents: googleEvents.length,
           newEventsCount: newEvents.length,
-          newEvents: newEvents.map(event => ({
-            id: event.id,
-            summary: event.summary,
-            description: event.description,
-            start: event.start,
-            end: event.end,
-          }))
+          importedCount,
+          lastSyncAt: new Date().toISOString()
         })
       } catch (error: any) {
         console.error('Erro ao sincronizar com Google Calendar:', error)

@@ -13,7 +13,8 @@ export default function Settings() {
   const [calendarStatus, setCalendarStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading')
   const [googleEmail, setGoogleEmail] = useState<string | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
-  const [syncResult, setSyncResult] = useState<{ total: number; newEvents: number } | null>(null)
+  const [syncResult, setSyncResult] = useState<{ total: number; newEvents: number; imported: number } | null>(null)
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   // Check for URL params (callback from Google OAuth)
@@ -56,9 +57,11 @@ export default function Settings() {
       })
       setCalendarStatus(data.connected ? 'connected' : 'disconnected')
       setGoogleEmail(data.email || null)
+      setLastSyncAt(data.lastSyncAt || null)
     } catch {
       setCalendarStatus('disconnected')
       setGoogleEmail(null)
+      setLastSyncAt(null)
     }
   }
 
@@ -106,16 +109,29 @@ export default function Settings() {
       const { data } = await api.post('/auth/google/sync', {}, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      setSyncResult({ total: data.totalGoogleEvents, newEvents: data.newEventsCount })
+      setSyncResult({ total: data.totalGoogleEvents, newEvents: data.newEventsCount, imported: data.importedCount })
+      setLastSyncAt(data.lastSyncAt)
       setNotification({
         type: 'success',
-        message: `Sincronização concluída! ${data.totalGoogleEvents} eventos encontrados, ${data.newEventsCount} novos.`
+        message: `Sincronização concluída! ${data.totalGoogleEvents} eventos encontrados, ${data.importedCount} importados.`
       })
     } catch {
       setNotification({ type: 'error', message: 'Erro ao sincronizar com Google Calendar.' })
     } finally {
       setIsSyncing(false)
     }
+  }
+
+  const formatLastSyncDate = (dateString: string | null) => {
+    if (!dateString) return null
+    const date = new Date(dateString)
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
   }
 
   return (
@@ -238,9 +254,16 @@ export default function Settings() {
             )}
           </div>
 
+          {lastSyncAt && (
+            <div className="p-3 rounded-lg bg-white/5 border border-white/10 text-text-secondary text-sm flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Última sincronização: {formatLastSyncDate(lastSyncAt)}
+            </div>
+          )}
+
           {syncResult && (
             <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 text-sm">
-              Última sincronização: {syncResult.total} eventos no Google Calendar, {syncResult.newEvents} não sincronizados com TattooTrack.
+              Resultado: {syncResult.total} eventos no Google Calendar, {syncResult.imported} importados para TattooTrack.
             </div>
           )}
 
