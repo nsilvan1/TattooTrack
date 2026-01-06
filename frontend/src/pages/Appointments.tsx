@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { Card, CardContent, Button, Input, Modal, SearchableSelect } from '../components/ui'
 import { appointmentsApi, clientsApi } from '../services/api'
+import { formatDate } from '../utils/date'
 import type { Appointment, CreateAppointmentData, AppointmentStatus, Client } from '../types'
 
 const DAYS_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -368,7 +369,7 @@ export default function Appointments() {
           <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
             <h2 className="font-semibold text-text-primary">
               {selectedDate
-                ? `${selectedDate.getDate()} de ${MONTHS_PT[selectedDate.getMonth()]}`
+                ? formatDate(selectedDate)
                 : 'Selecione um dia'}
             </h2>
             {selectedDate && (

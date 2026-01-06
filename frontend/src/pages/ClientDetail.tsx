@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { Button, Card, CardContent, Avatar, Tag, Modal, Input, Textarea } from '../components/ui'
 import { clientsApi, tagsApi, referencesApi } from '../services/api'
+import { formatDate } from '../utils/date'
 import type { Tag as TagType } from '../types'
 
 export default function ClientDetail() {
@@ -105,10 +106,6 @@ export default function ClientDetail() {
 
   const clientTagIds = client.tags.map((t) => t.tagId)
   const availableTags = tags?.filter((t: TagType) => !clientTagIds.includes(t.id)) || []
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('pt-BR')
-  }
 
   return (
     <div className="space-y-6">

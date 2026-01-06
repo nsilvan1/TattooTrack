@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import path from 'path'
@@ -7,6 +8,7 @@ import tattoosRouter from './routes/tattoos'
 import referencesRouter from './routes/references'
 import uploadRouter from './routes/upload'
 import appointmentsRouter from './routes/appointments'
+import authRouter from './routes/auth'
 
 const app = express()
 const PORT = process.env.PORT || 3333
@@ -24,6 +26,7 @@ app.use('/api/tattoos', tattoosRouter)
 app.use('/api/references', referencesRouter)
 app.use('/api/upload', uploadRouter)
 app.use('/api/appointments', appointmentsRouter)
+app.use('/api/auth', authRouter)
 
 // Health check
 app.get('/api/health', (req, res) => {

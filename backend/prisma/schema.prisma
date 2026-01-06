@@ -81,6 +81,23 @@ model Appointment {
   depositPaid     Boolean   @default(false) // Se o sinal foi pago
   depositPaidAt   DateTime? // Data do pagamento do sinal
   notes           String?
+  googleEventId   String?   // ID do evento no Google Calendar
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+}
+
+model User {
+  id                  String    @id @default(uuid())
+  username            String    @unique
+  password            String    // Senha criptografada
+  name                String
+  email               String?   // Opcional
+  picture             String?
+  googleId            String?   @unique // Opcional - para integração Google
+  googleAccessToken   String?
+  googleRefreshToken  String?
+  googleTokenExpiry   DateTime?
+  calendarConnected   Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }

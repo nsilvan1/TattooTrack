@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
@@ -22,6 +23,23 @@ async function main() {
     })
     console.log(`Created tag: ${tag.name}`)
   }
+
+  // Criar usuário de teste
+  const hashedPassword = await bcrypt.hash('123456', 10)
+
+  const testUser = await prisma.user.upsert({
+    where: { username: 'admin' },
+    update: {},
+    create: {
+      name: 'Administrador',
+      username: 'admin',
+      password: hashedPassword,
+    },
+  })
+
+  console.log('Usuário de teste criado:')
+  console.log('  Usuário: admin')
+  console.log('  Senha: 123456')
 
   console.log('Seeding completed!')
 }
