@@ -68,10 +68,10 @@ router.post('/register', async (req, res) => {
         calendarConnected: user.calendarConnected,
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro no registro:', error)
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors[0].message })
+    if (error?.issues) {
+      return res.status(400).json({ error: error.issues[0].message })
     }
     res.status(500).json({ error: 'Erro ao criar conta' })
   }
@@ -119,10 +119,10 @@ router.post('/login', async (req, res) => {
         calendarConnected: user.calendarConnected,
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro no login:', error)
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors[0].message })
+    if (error?.issues) {
+      return res.status(400).json({ error: error.issues[0].message })
     }
     res.status(500).json({ error: 'Erro ao fazer login' })
   }
