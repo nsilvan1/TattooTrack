@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent } from '../components/ui'
-import { Settings as SettingsIcon, Info, Calendar, CheckCircle, XCircle, Loader2, ExternalLink } from 'lucide-react'
+import { Settings as SettingsIcon, Info, Calendar, CheckCircle, XCircle, Loader2, ExternalLink, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 
@@ -11,6 +11,9 @@ export default function Settings() {
   const [isConnecting, setIsConnecting] = useState(false)
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [calendarStatus, setCalendarStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading')
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<{ total: number; newEvents: number } | null>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   // Check for URL params (callback from Google OAuth)
@@ -52,8 +55,10 @@ export default function Settings() {
         headers: { Authorization: `Bearer ${token}` }
       })
       setCalendarStatus(data.connected ? 'connected' : 'disconnected')
+      setGoogleEmail(data.email || null)
     } catch {
       setCalendarStatus('disconnected')
+      setGoogleEmail(null)
     }
   }
 
@@ -80,6 +85,8 @@ export default function Settings() {
         headers: { Authorization: `Bearer ${token}` }
       })
       setCalendarStatus('disconnected')
+      setGoogleEmail(null)
+      setSyncResult(null)
       setNotification({ type: 'success', message: 'Google Calendar desconectado com sucesso.' })
       if (user) {
         updateUser({ ...user, calendarConnected: false })
@@ -88,6 +95,26 @@ export default function Settings() {
       setNotification({ type: 'error', message: 'Erro ao desconectar Google Calendar.' })
     } finally {
       setIsDisconnecting(false)
+    }
+  }
+
+  const handleSyncCalendar = async () => {
+    setIsSyncing(true)
+    setSyncResult(null)
+    try {
+      const token = localStorage.getItem('token')
+      const { data } = await api.post('/auth/google/sync', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setSyncResult({ total: data.totalGoogleEvents, newEvents: data.newEventsCount })
+      setNotification({
+        type: 'success',
+        message: `Sincronização concluída! ${data.totalGoogleEvents} eventos encontrados, ${data.newEventsCount} novos.`
+      })
+    } catch {
+      setNotification({ type: 'error', message: 'Erro ao sincronizar com Google Calendar.' })
+    } finally {
+      setIsSyncing(false)
     }
   }
 
@@ -146,7 +173,7 @@ export default function Settings() {
                   {calendarStatus === 'loading' ? (
                     'Verificando status...'
                   ) : calendarStatus === 'connected' ? (
-                    <span className="text-green-400">Conectado</span>
+                    <span className="text-green-400">Conectado{googleEmail && ` • ${googleEmail}`}</span>
                   ) : (
                     'Não conectado'
                   )}
@@ -157,20 +184,39 @@ export default function Settings() {
             {calendarStatus === 'loading' ? (
               <Loader2 className="w-5 h-5 text-text-secondary animate-spin" />
             ) : calendarStatus === 'connected' ? (
-              <button
-                onClick={handleDisconnectGoogle}
-                disabled={isDisconnecting}
-                className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isDisconnecting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Desconectando...
-                  </>
-                ) : (
-                  'Desconectar'
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSyncCalendar}
+                  disabled={isSyncing}
+                  className="px-4 py-2 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 text-sm font-medium hover:bg-blue-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isSyncing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Sincronizando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      Sincronizar
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleDisconnectGoogle}
+                  disabled={isDisconnecting}
+                  className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isDisconnecting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Desconectando...
+                    </>
+                  ) : (
+                    'Desconectar'
+                  )}
+                </button>
+              </div>
             ) : (
               <button
                 onClick={handleConnectGoogle}
@@ -191,6 +237,12 @@ export default function Settings() {
               </button>
             )}
           </div>
+
+          {syncResult && (
+            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 text-sm">
+              Última sincronização: {syncResult.total} eventos no Google Calendar, {syncResult.newEvents} não sincronizados com TattooTrack.
+            </div>
+          )}
 
           <p className="text-text-secondary text-xs">
             Ao conectar, seus agendamentos serão sincronizados automaticamente com seu Google Calendar.

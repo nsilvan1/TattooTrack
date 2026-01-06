@@ -210,10 +210,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },
-        select: { calendarConnected: true, googleAccessToken: true }
+        select: { calendarConnected: true, googleAccessToken: true, googleEmail: true }
       })
 
-      return res.json({ connected: user?.calendarConnected || false })
+      return res.json({
+        connected: user?.calendarConnected || false,
+        email: user?.googleEmail || null
+      })
     }
 
     if (path === '/auth/google/connect' && method === 'GET') {
@@ -227,6 +230,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const scopes = [
         'https://www.googleapis.com/auth/calendar',
         'https://www.googleapis.com/auth/calendar.events',
+        'https://www.googleapis.com/auth/userinfo.email',
       ]
 
       const authUrl = oauth2Client.generateAuthUrl({
@@ -249,12 +253,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const { tokens } = await oauth2Client.getToken(code)
 
+        // Buscar informações do usuário Google (email)
+        oauth2Client.setCredentials(tokens)
+        const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
+        const { data: googleUserInfo } = await oauth2.userinfo.get()
+
         await prisma.user.update({
           where: { id: userId },
           data: {
             googleAccessToken: tokens.access_token,
             googleRefreshToken: tokens.refresh_token,
             googleTokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+            googleEmail: googleUserInfo.email,
             calendarConnected: true,
           }
         })
@@ -276,11 +286,82 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           googleAccessToken: null,
           googleRefreshToken: null,
           googleTokenExpiry: null,
+          googleEmail: null,
           calendarConnected: false,
         }
       })
 
       return res.json({ success: true })
+    }
+
+    // Sincronizar eventos do Google Calendar para o TattooTrack
+    if (path === '/auth/google/sync' && method === 'POST') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: { calendarConnected: true, googleAccessToken: true, googleRefreshToken: true, googleTokenExpiry: true }
+      })
+
+      if (!user?.calendarConnected || !user.googleAccessToken) {
+        return res.status(400).json({ error: 'Google Calendar não conectado' })
+      }
+
+      try {
+        // Verificar se precisa refresh do token
+        let accessToken = user.googleAccessToken
+        if (user.googleTokenExpiry && new Date(user.googleTokenExpiry) < new Date() && user.googleRefreshToken) {
+          const newTokens = await refreshGoogleToken(user.googleRefreshToken)
+          accessToken = newTokens.access_token!
+          await prisma.user.update({
+            where: { id: decoded.userId },
+            data: { googleAccessToken: newTokens.access_token, googleTokenExpiry: newTokens.expiry_date ? new Date(newTokens.expiry_date) : null }
+          })
+        }
+
+        oauth2Client.setCredentials({ access_token: accessToken })
+        const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+
+        // Buscar eventos dos próximos 30 dias
+        const now = new Date()
+        const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+        const eventsResponse = await calendar.events.list({
+          calendarId: 'primary',
+          timeMin: now.toISOString(),
+          timeMax: thirtyDaysLater.toISOString(),
+          singleEvents: true,
+          orderBy: 'startTime',
+        })
+
+        const googleEvents = eventsResponse.data.items || []
+
+        // Buscar todos os agendamentos existentes com googleEventId
+        const existingAppointments = await prisma.appointment.findMany({
+          where: { googleEventId: { not: null } },
+          select: { googleEventId: true }
+        })
+        const existingEventIds = new Set(existingAppointments.map(a => a.googleEventId))
+
+        // Filtrar eventos que não existem no TattooTrack
+        const newEvents = googleEvents.filter(event => event.id && !existingEventIds.has(event.id))
+
+        return res.json({
+          totalGoogleEvents: googleEvents.length,
+          newEventsCount: newEvents.length,
+          newEvents: newEvents.map(event => ({
+            id: event.id,
+            summary: event.summary,
+            description: event.description,
+            start: event.start,
+            end: event.end,
+          }))
+        })
+      } catch (error: any) {
+        console.error('Erro ao sincronizar com Google Calendar:', error)
+        return res.status(500).json({ error: 'Erro ao sincronizar com Google Calendar' })
+      }
     }
 
     // ============ TAGS ============

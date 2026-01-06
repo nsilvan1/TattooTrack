@@ -95,6 +95,7 @@ model User {
   email               String?   // Opcional
   picture             String?
   googleId            String?   @unique // Opcional - para integração Google
+  googleEmail         String?   // Email da conta Google conectada
   googleAccessToken   String?
   googleRefreshToken  String?
   googleTokenExpiry   DateTime?
