@@ -34,7 +34,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { url, method } = req
-  const path = url?.replace('/api', '') || '/'
+  // Parse URL corretamente, removendo query string para matching de rotas
+  const urlObj = new URL(url || '/', `http://${req.headers.host}`)
+  const path = urlObj.pathname.replace('/api', '') || '/'
+
+  // Debug log para verificar o path
+  console.log('Request URL:', url, '| Parsed path:', path, '| Method:', method)
 
   try {
     // ============ AUTH ============
@@ -300,11 +305,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ============ HEALTH ============
     if (path === '/health' || path === '/') {
-      return res.json({ status: 'ok', timestamp: new Date().toISOString() })
+      return res.json({ status: 'ok', timestamp: new Date().toISOString(), debugPath: path, originalUrl: url })
     }
 
     // 404
-    return res.status(404).json({ error: 'Rota não encontrada', path })
+    return res.status(404).json({ error: 'Rota não encontrada', path, originalUrl: url, method })
 
   } catch (error: any) {
     console.error('API Error:', error)
