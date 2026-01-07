@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Client, CreateClientData, UpdateClientData, Tag, PaginatedResponse, ClientFilters, Tattoo, Reference, Appointment, CreateAppointmentData, UpdateAppointmentData, AppointmentFilters, AppointmentStatus } from '../types'
+import type { Client, CreateClientData, UpdateClientData, Tag, PaginatedResponse, ClientFilters, Tattoo, Reference, Appointment, CreateAppointmentData, UpdateAppointmentData, AppointmentFilters, AppointmentStatus, Category, Transaction, CreateTransactionData, UpdateTransactionData, TransactionFilters, FinancialSummary, CategorySummary, TransactionType } from '../types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -175,6 +175,90 @@ export const appointmentsApi = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/appointments/${id}`)
+  },
+}
+
+// Categories
+export const categoriesApi = {
+  list: async (type?: TransactionType): Promise<Category[]> => {
+    const params = new URLSearchParams()
+    if (type) params.append('type', type)
+    const { data } = await api.get(`/categories?${params}`)
+    return data
+  },
+
+  create: async (categoryData: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>): Promise<Category> => {
+    const { data } = await api.post('/categories', categoryData)
+    return data
+  },
+
+  update: async (id: string, categoryData: Partial<Category>): Promise<Category> => {
+    const { data } = await api.put(`/categories/${id}`, categoryData)
+    return data
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/categories/${id}`)
+  },
+
+  seed: async (): Promise<{ created: number; categories: Category[] }> => {
+    const { data } = await api.post('/categories/seed')
+    return data
+  },
+}
+
+// Transactions
+export const transactionsApi = {
+  list: async (filters?: TransactionFilters): Promise<Transaction[]> => {
+    const params = new URLSearchParams()
+    if (filters?.startDate) params.append('startDate', filters.startDate)
+    if (filters?.endDate) params.append('endDate', filters.endDate)
+    if (filters?.type) params.append('type', filters.type)
+    if (filters?.categoryId) params.append('categoryId', filters.categoryId)
+
+    const { data } = await api.get(`/transactions?${params}`)
+    return data
+  },
+
+  get: async (id: string): Promise<Transaction> => {
+    const { data } = await api.get(`/transactions/${id}`)
+    return data
+  },
+
+  create: async (transactionData: CreateTransactionData): Promise<Transaction> => {
+    const { data } = await api.post('/transactions', transactionData)
+    return data
+  },
+
+  update: async (id: string, transactionData: UpdateTransactionData): Promise<Transaction> => {
+    const { data } = await api.put(`/transactions/${id}`, transactionData)
+    return data
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/transactions/${id}`)
+  },
+}
+
+// Finances
+export const financesApi = {
+  getSummary: async (startDate?: string, endDate?: string): Promise<FinancialSummary> => {
+    const params = new URLSearchParams()
+    if (startDate) params.append('startDate', startDate)
+    if (endDate) params.append('endDate', endDate)
+
+    const { data } = await api.get(`/finances/summary?${params}`)
+    return data
+  },
+
+  getByCategory: async (startDate?: string, endDate?: string, type?: TransactionType): Promise<CategorySummary[]> => {
+    const params = new URLSearchParams()
+    if (startDate) params.append('startDate', startDate)
+    if (endDate) params.append('endDate', endDate)
+    if (type) params.append('type', type)
+
+    const { data } = await api.get(`/finances/by-category?${params}`)
+    return data
   },
 }
 

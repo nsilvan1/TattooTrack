@@ -68,23 +68,54 @@ model Reference {
 }
 
 model Appointment {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  clientId        String    @db.ObjectId
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId        String        @db.ObjectId
   title           String
   description     String?
   date            DateTime
-  startTime       String    // HH:mm format
-  estimatedHours  Float     // Estimated duration in hours
-  status          String    @default("scheduled") // scheduled, confirmed, in_progress, completed, cancelled
+  startTime       String        // HH:mm format
+  estimatedHours  Float         // Estimated duration in hours
+  status          String        @default("scheduled") // scheduled, confirmed, in_progress, completed, cancelled
   price           Float?
-  depositAmount   Float?    // Valor do sinal
-  depositPaid     Boolean   @default(false) // Se o sinal foi pago
-  depositPaidAt   DateTime? // Data do pagamento do sinal
+  depositAmount   Float?        // Valor do sinal
+  depositPaid     Boolean       @default(false) // Se o sinal foi pago
+  depositPaidAt   DateTime?     // Data do pagamento do sinal
   notes           String?
-  googleEventId   String?   // ID do evento no Google Calendar
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  googleEventId   String?       // ID do evento no Google Calendar
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  transactions    Transaction[]
+}
+
+model Category {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  type         String        // 'income' | 'expense'
+  color        String
+  icon         String?
+  isDefault    Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+
+  @@unique([name, type])
+}
+
+model Transaction {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  type          String       // 'income' | 'expense'
+  amount        Float
+  description   String
+  date          DateTime
+  category      Category     @relation(fields: [categoryId], references: [id])
+  categoryId    String       @db.ObjectId
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  appointmentId String?      @db.ObjectId
+  isAutomatic   Boolean      @default(false)
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model User {

@@ -692,11 +692,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (statusMatch && method === 'PATCH') {
       const id = statusMatch[1]
       const { status } = parseBody(req)
+
+      const oldAppointment = await prisma.appointment.findUnique({
+        where: { id },
+        include: { client: true, transactions: true }
+      })
+
       const appointment = await prisma.appointment.update({
         where: { id },
         data: { status },
         include: { client: true }
       })
+
+      // Se status mudou para "completed" e tem preco, criar transacao automatica
+      if (status === 'completed' && oldAppointment?.status !== 'completed' && appointment.price) {
+        // Verificar se ja existe transacao de sinal
+        const existingDepositTransaction = oldAppointment?.transactions?.find(t => t.isAutomatic)
+        const depositAlreadyPaid = existingDepositTransaction?.amount || 0
+        const remainingAmount = appointment.price - depositAlreadyPaid
+
+        if (remainingAmount > 0) {
+          const sessionCategory = await prisma.category.findFirst({
+            where: { name: 'Sessao de Tatuagem', type: 'income' }
+          })
+
+          if (sessionCategory) {
+            await prisma.transaction.create({
+              data: {
+                type: 'income',
+                amount: remainingAmount,
+                description: `Sessao - ${appointment.title} (${appointment.client.name})`,
+                date: new Date(),
+                categoryId: sessionCategory.id,
+                appointmentId: appointment.id,
+                isAutomatic: true,
+              }
+            })
+          }
+        }
+      }
+
       return res.json(appointment)
     }
 
@@ -705,6 +740,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (depositMatch && method === 'PATCH') {
       const id = depositMatch[1]
       const { depositPaid, depositAmount } = parseBody(req)
+
+      const oldAppointment = await prisma.appointment.findUnique({
+        where: { id },
+        include: { client: true }
+      })
+
       const appointment = await prisma.appointment.update({
         where: { id },
         data: {
@@ -714,7 +755,293 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         include: { client: true }
       })
+
+      // Se sinal foi marcado como pago, criar transacao automatica
+      if (depositPaid && !oldAppointment?.depositPaid && depositAmount && depositAmount > 0) {
+        const depositCategory = await prisma.category.findFirst({
+          where: { name: 'Sinal/Deposito', type: 'income' }
+        })
+
+        if (depositCategory) {
+          await prisma.transaction.create({
+            data: {
+              type: 'income',
+              amount: depositAmount,
+              description: `Sinal - ${appointment.title} (${appointment.client.name})`,
+              date: new Date(),
+              categoryId: depositCategory.id,
+              appointmentId: appointment.id,
+              isAutomatic: true,
+            }
+          })
+        }
+      }
+
       return res.json(appointment)
+    }
+
+    // ============ CATEGORIES ============
+    if (path === '/categories' && method === 'GET') {
+      const { type } = req.query as any
+      const where: any = {}
+      if (type) where.type = type
+
+      const categories = await prisma.category.findMany({
+        where,
+        orderBy: { name: 'asc' }
+      })
+      return res.json(categories)
+    }
+
+    if (path === '/categories' && method === 'POST') {
+      const { name, type, color, icon, isDefault } = parseBody(req)
+      const category = await prisma.category.create({
+        data: { name, type, color, icon, isDefault: isDefault || false }
+      })
+      return res.json(category)
+    }
+
+    if (path === '/categories/seed' && method === 'POST') {
+      // Seed de categorias padrao
+      const defaultCategories = [
+        // Receitas
+        { name: 'Sessao de Tatuagem', type: 'income', color: '#34d399', icon: 'Palette', isDefault: true },
+        { name: 'Sinal/Deposito', type: 'income', color: '#38bdf8', icon: 'Wallet', isDefault: true },
+        { name: 'Retoque', type: 'income', color: '#a78bfa', icon: 'RefreshCw', isDefault: true },
+        { name: 'Outros', type: 'income', color: '#94a3b8', icon: 'MoreHorizontal', isDefault: true },
+        // Despesas
+        { name: 'Materiais', type: 'expense', color: '#f87171', icon: 'Package', isDefault: true },
+        { name: 'Tintas', type: 'expense', color: '#fb923c', icon: 'Droplet', isDefault: true },
+        { name: 'Agulhas', type: 'expense', color: '#fbbf24', icon: 'Scissors', isDefault: true },
+        { name: 'Aluguel', type: 'expense', color: '#8b5cf6', icon: 'Home', isDefault: true },
+        { name: 'Equipamentos', type: 'expense', color: '#06b6d4', icon: 'Monitor', isDefault: true },
+        { name: 'Marketing', type: 'expense', color: '#ec4899', icon: 'Megaphone', isDefault: true },
+        { name: 'Outros', type: 'expense', color: '#94a3b8', icon: 'MoreHorizontal', isDefault: true },
+      ]
+
+      const results = []
+      for (const cat of defaultCategories) {
+        const existing = await prisma.category.findFirst({
+          where: { name: cat.name, type: cat.type }
+        })
+        if (!existing) {
+          const created = await prisma.category.create({ data: cat })
+          results.push(created)
+        }
+      }
+
+      return res.json({ created: results.length, categories: results })
+    }
+
+    // Seed de transacoes de teste
+    if (path === '/transactions/seed' && method === 'POST') {
+      // Primeiro garantir que as categorias existem
+      const categories = await prisma.category.findMany()
+      if (categories.length === 0) {
+        return res.status(400).json({ error: 'Execute /categories/seed primeiro' })
+      }
+
+      const getCategoryId = (name: string, type: string) => {
+        const cat = categories.find(c => c.name === name && c.type === type)
+        return cat?.id
+      }
+
+      const now = new Date()
+      const currentMonth = now.getMonth()
+      const currentYear = now.getFullYear()
+
+      const testTransactions = [
+        // Receitas do mes atual
+        { type: 'income', amount: 800, description: 'Sessao tatuagem braço - Cliente João', date: new Date(currentYear, currentMonth, 5), categoryId: getCategoryId('Sessao de Tatuagem', 'income') },
+        { type: 'income', amount: 1200, description: 'Sessao tatuagem costas - Cliente Maria', date: new Date(currentYear, currentMonth, 8), categoryId: getCategoryId('Sessao de Tatuagem', 'income') },
+        { type: 'income', amount: 300, description: 'Sinal sessao agendada - Cliente Pedro', date: new Date(currentYear, currentMonth, 10), categoryId: getCategoryId('Sinal/Deposito', 'income') },
+        { type: 'income', amount: 500, description: 'Sessao tatuagem perna - Cliente Ana', date: new Date(currentYear, currentMonth, 12), categoryId: getCategoryId('Sessao de Tatuagem', 'income') },
+        { type: 'income', amount: 150, description: 'Retoque gratuito convertido - Cliente Lucas', date: new Date(currentYear, currentMonth, 15), categoryId: getCategoryId('Retoque', 'income') },
+        { type: 'income', amount: 950, description: 'Sessao tatuagem ombro - Cliente Carla', date: new Date(currentYear, currentMonth, 18), categoryId: getCategoryId('Sessao de Tatuagem', 'income') },
+        { type: 'income', amount: 400, description: 'Sinal sessao grande - Cliente Roberto', date: new Date(currentYear, currentMonth, 20), categoryId: getCategoryId('Sinal/Deposito', 'income') },
+        // Despesas do mes atual
+        { type: 'expense', amount: 350, description: 'Compra de tintas variadas', date: new Date(currentYear, currentMonth, 3), categoryId: getCategoryId('Tintas', 'expense') },
+        { type: 'expense', amount: 180, description: 'Agulhas descartaveis - 50 unidades', date: new Date(currentYear, currentMonth, 7), categoryId: getCategoryId('Agulhas', 'expense') },
+        { type: 'expense', amount: 1500, description: 'Aluguel estudio Janeiro', date: new Date(currentYear, currentMonth, 1), categoryId: getCategoryId('Aluguel', 'expense') },
+        { type: 'expense', amount: 250, description: 'Luvas, papel toalha, plastico filme', date: new Date(currentYear, currentMonth, 10), categoryId: getCategoryId('Materiais', 'expense') },
+        { type: 'expense', amount: 120, description: 'Anuncio Instagram', date: new Date(currentYear, currentMonth, 14), categoryId: getCategoryId('Marketing', 'expense') },
+        { type: 'expense', amount: 89, description: 'Manutencao maquina', date: new Date(currentYear, currentMonth, 16), categoryId: getCategoryId('Equipamentos', 'expense') },
+      ]
+
+      const created = []
+      for (const t of testTransactions) {
+        if (t.categoryId) {
+          const transaction = await prisma.transaction.create({
+            data: {
+              type: t.type,
+              amount: t.amount,
+              description: t.description,
+              date: t.date,
+              categoryId: t.categoryId,
+              isAutomatic: false,
+            }
+          })
+          created.push(transaction)
+        }
+      }
+
+      return res.json({ created: created.length, transactions: created })
+    }
+
+    const categoryMatch = path.match(/^\/categories\/([^/]+)$/)
+    if (categoryMatch) {
+      const id = categoryMatch[1]
+
+      if (method === 'PUT') {
+        const data = parseBody(req)
+        const category = await prisma.category.update({ where: { id }, data })
+        return res.json(category)
+      }
+
+      if (method === 'DELETE') {
+        // Verificar se tem transacoes vinculadas
+        const transactionsCount = await prisma.transaction.count({
+          where: { categoryId: id }
+        })
+        if (transactionsCount > 0) {
+          return res.status(400).json({ error: 'Nao e possivel excluir categoria com transacoes vinculadas' })
+        }
+        await prisma.category.delete({ where: { id } })
+        return res.status(204).end()
+      }
+    }
+
+    // ============ TRANSACTIONS ============
+    if (path === '/transactions' && method === 'GET') {
+      const { startDate, endDate, type, categoryId } = req.query as any
+      const where: any = {}
+
+      if (startDate) where.date = { gte: new Date(startDate) }
+      if (endDate) where.date = { ...where.date, lte: new Date(endDate) }
+      if (type) where.type = type
+      if (categoryId) where.categoryId = categoryId
+
+      const transactions = await prisma.transaction.findMany({
+        where,
+        orderBy: { date: 'desc' },
+        include: {
+          category: true,
+          appointment: { include: { client: true } }
+        }
+      })
+      return res.json(transactions)
+    }
+
+    if (path === '/transactions' && method === 'POST') {
+      const { type, amount, description, date, categoryId, appointmentId, notes } = parseBody(req)
+      const transaction = await prisma.transaction.create({
+        data: {
+          type,
+          amount,
+          description,
+          date: new Date(date),
+          categoryId,
+          appointmentId,
+          notes,
+          isAutomatic: false,
+        },
+        include: { category: true }
+      })
+      return res.json(transaction)
+    }
+
+    const transactionMatch = path.match(/^\/transactions\/([^/]+)$/)
+    if (transactionMatch) {
+      const id = transactionMatch[1]
+
+      if (method === 'GET') {
+        const transaction = await prisma.transaction.findUnique({
+          where: { id },
+          include: {
+            category: true,
+            appointment: { include: { client: true } }
+          }
+        })
+        if (!transaction) return res.status(404).json({ error: 'Transacao nao encontrada' })
+        return res.json(transaction)
+      }
+
+      if (method === 'PUT') {
+        const data = parseBody(req)
+        if (data.date) data.date = new Date(data.date)
+        const transaction = await prisma.transaction.update({
+          where: { id },
+          data,
+          include: { category: true }
+        })
+        return res.json(transaction)
+      }
+
+      if (method === 'DELETE') {
+        await prisma.transaction.delete({ where: { id } })
+        return res.status(204).end()
+      }
+    }
+
+    // ============ FINANCES ============
+    if (path === '/finances/summary' && method === 'GET') {
+      const { startDate, endDate } = req.query as any
+      const where: any = {}
+
+      if (startDate) where.date = { gte: new Date(startDate) }
+      if (endDate) where.date = { ...where.date, lte: new Date(endDate) }
+
+      const [income, expense] = await Promise.all([
+        prisma.transaction.aggregate({
+          where: { ...where, type: 'income' },
+          _sum: { amount: true }
+        }),
+        prisma.transaction.aggregate({
+          where: { ...where, type: 'expense' },
+          _sum: { amount: true }
+        })
+      ])
+
+      const totalIncome = income._sum.amount || 0
+      const totalExpense = expense._sum.amount || 0
+
+      return res.json({
+        totalIncome,
+        totalExpense,
+        balance: totalIncome - totalExpense
+      })
+    }
+
+    if (path === '/finances/by-category' && method === 'GET') {
+      const { startDate, endDate, type } = req.query as any
+      const where: any = {}
+
+      if (startDate) where.date = { gte: new Date(startDate) }
+      if (endDate) where.date = { ...where.date, lte: new Date(endDate) }
+      if (type) where.type = type
+
+      const transactions = await prisma.transaction.groupBy({
+        by: ['categoryId'],
+        where,
+        _sum: { amount: true },
+        _count: { id: true }
+      })
+
+      const categories = await prisma.category.findMany({
+        where: { id: { in: transactions.map(t => t.categoryId) } }
+      })
+
+      const categoryMap = new Map(categories.map(c => [c.id, c]))
+      const total = transactions.reduce((sum, t) => sum + (t._sum.amount || 0), 0)
+
+      const result = transactions.map(t => ({
+        category: categoryMap.get(t.categoryId),
+        total: t._sum.amount || 0,
+        count: t._count.id,
+        percentage: total > 0 ? ((t._sum.amount || 0) / total) * 100 : 0
+      })).sort((a, b) => b.total - a.total)
+
+      return res.json(result)
     }
 
     // ============ HEALTH ============

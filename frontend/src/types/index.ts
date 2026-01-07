@@ -121,3 +121,65 @@ export interface AppointmentFilters {
   status?: AppointmentStatus
   clientId?: string
 }
+
+// ============ FINANCIAL TYPES ============
+
+export type TransactionType = 'income' | 'expense'
+
+export interface Category {
+  id: string
+  name: string
+  type: TransactionType
+  color: string
+  icon?: string
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Transaction {
+  id: string
+  type: TransactionType
+  amount: number
+  description: string
+  date: string
+  categoryId: string
+  category: Category
+  appointmentId?: string
+  appointment?: Pick<Appointment, 'id' | 'title' | 'client'>
+  isAutomatic: boolean
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateTransactionData {
+  type: TransactionType
+  amount: number
+  description: string
+  date: string
+  categoryId: string
+  notes?: string
+}
+
+export interface UpdateTransactionData extends Partial<CreateTransactionData> {}
+
+export interface TransactionFilters {
+  startDate?: string
+  endDate?: string
+  type?: TransactionType
+  categoryId?: string
+}
+
+export interface FinancialSummary {
+  totalIncome: number
+  totalExpense: number
+  balance: number
+}
+
+export interface CategorySummary {
+  category: Category
+  total: number
+  count: number
+  percentage: number
+}

@@ -1,13 +1,14 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, Calendar, Tag, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Calendar, DollarSign, Tag, Settings, LogOut } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Clientes', href: '/clients', icon: Users },
   { name: 'Agendamentos', href: '/appointments', icon: Calendar },
+  { name: 'Financeiro', href: '/finances', icon: DollarSign },
   { name: 'Tags', href: '/tags', icon: Tag },
-  { name: 'Configurações', href: '/settings', icon: Settings },
+  { name: 'Configuracoes', href: '/settings', icon: Settings },
 ]
 
 export default function Sidebar() {
