@@ -13,6 +13,7 @@ interface User {
 interface LoginData {
   username: string
   password: string
+  rememberMe?: boolean
 }
 
 interface RegisterData {
@@ -41,8 +42,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth()
   }, [])
 
+  const getToken = () => {
+    return localStorage.getItem('token') || sessionStorage.getItem('token')
+  }
+
   const checkAuth = async () => {
-    const token = localStorage.getItem('token')
+    const token = getToken()
 
     if (!token) {
       setIsLoading(false)
@@ -56,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data)
     } catch (error) {
       localStorage.removeItem('token')
+      sessionStorage.removeItem('token')
     } finally {
       setIsLoading(false)
     }
@@ -63,7 +69,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (loginData: LoginData) => {
     const { data } = await api.post('/auth/login', loginData)
-    localStorage.setItem('token', data.token)
+
+    // Se "Manter Conectado" estiver marcado, salva no localStorage (persistente)
+    // Caso contrário, salva no sessionStorage (expira ao fechar o navegador)
+    if (loginData.rememberMe) {
+      localStorage.setItem('token', data.token)
+      sessionStorage.removeItem('token')
+    } else {
+      sessionStorage.setItem('token', data.token)
+      localStorage.removeItem('token')
+    }
+
     setUser(data.user)
   }
 
@@ -75,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('token')
+    sessionStorage.removeItem('token')
     setUser(null)
     window.location.href = '/login'
   }
