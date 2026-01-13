@@ -19,6 +19,8 @@ model Client {
   allergies    String?
   medicalNotes String?
   notes        String?
+  firstContact DateTime?   // Data do primeiro contato
+  lastContact  DateTime?   // Data do último contato
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -46,16 +48,22 @@ model ClientTag {
 }
 
 model Tattoo {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  clientId    String    @db.ObjectId
-  description String
-  bodyPart    String
-  date        DateTime?
-  price       Float?
-  notes       String?
-  images      String    @default("[]")
-  createdAt   DateTime  @default(now())
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId      String    @db.ObjectId
+  description   String
+  bodyPart      String
+  style         String?   // Estilo: realismo, blackwork, aquarela, etc.
+  size          String?   // Tamanho: pequeno, médio, grande
+  date          DateTime?
+  price         Float?
+  sessions      Int       @default(1) // Número de sessões
+  duration      Float?    // Duração total em horas
+  notes         String?
+  images        String    @default("[]")
+  appointmentId String?   @db.ObjectId // Referência ao agendamento relacionado
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model Reference {
@@ -85,6 +93,7 @@ model Appointment {
   googleEventId   String?   // ID do evento no Google Calendar
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  stockMovements  StockMovement[]
 }
 
 model User {
@@ -99,6 +108,139 @@ model User {
   googleRefreshToken  String?
   googleTokenExpiry   DateTime?
   calendarConnected   Boolean   @default(false)
+  isAdmin             Boolean   @default(false) // Flag para identificar admin
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  reports             Report[]  // Reports criados pelo usuário
+  reportResponses     ReportResponse[] // Respostas de admin
+  notifications       Notification[] // Notificações do usuário
+}
+
+// ==================== FINANCEIRO ====================
+
+model Category {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  type         String        // income | expense
+  color        String
+  icon         String?
+  isDefault    Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+
+  @@unique([name, type])
+}
+
+model Transaction {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  type          String    // income | expense
+  amount        Float
+  description   String
+  date          DateTime
+  notes         String?
+  isAutomatic   Boolean   @default(false) // Se foi gerada automaticamente (ex: de um agendamento)
+  appointmentId String?   @db.ObjectId    // Referência opcional ao agendamento
+  category      Category  @relation(fields: [categoryId], references: [id])
+  categoryId    String    @db.ObjectId
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ==================== ESTOQUE ====================
+
+model ProductCategory {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  name      String    @unique
+  color     String
+  icon      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+model Product {
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  description     String?
+  sku             String?           @unique // Código do produto
+  category        ProductCategory   @relation(fields: [categoryId], references: [id])
+  categoryId      String            @db.ObjectId
+  brand           String?
+
+  // Unidades de medida
+  purchaseUnit    String            @default("un")  // Unidade de compra: cx (caixa), pct (pacote), fr (frasco), un (unidade)
+  usageUnit       String            @default("un")  // Unidade de uso: un (unidade), ml, g, etc.
+  quantityPerPurchaseUnit Float     @default(1)     // Quantidade de usageUnit por purchaseUnit (ex: 50 agulhas por caixa, 100ml por frasco)
+
+  // Estoque (sempre em usageUnit para precisão)
+  currentStock    Float             @default(0)     // Estoque atual em usageUnit
+  minStock        Float             @default(5)     // Alerta de estoque baixo em usageUnit
+
+  costPrice       Float?            // Preço de custo por purchaseUnit
+  supplier        String?           // Fornecedor
+  notes           String?
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  movements       StockMovement[]
+}
+
+model StockMovement {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId     String       @db.ObjectId
+  type          String       // in | out | adjustment
+  quantity      Float        // Quantidade movimentada (em usageUnit para saídas, pode ser em purchaseUnit para entradas)
+  unit          String       @default("un") // Unidade usada nesta movimentação (usageUnit ou purchaseUnit)
+  reason        String?      // Motivo: compra, uso em sessão, perda, ajuste, etc.
+  notes         String?
+  costPerUnit   Float?       // Custo unitário no momento da movimentação
+  appointmentId String?      @db.ObjectId // Vínculo opcional com agendamento (para saídas de sessão)
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  createdAt     DateTime     @default(now())
+}
+
+// ==================== REPORTS/BUG REPORTS ====================
+
+model Report {
+  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String           @db.ObjectId
+  title       String
+  description String
+  type        String           @default("bug") // bug | feature | other
+  status      String           @default("open") // open | in_progress | resolved | closed
+  priority    String           @default("medium") // low | medium | high | critical
+  screenshots String[]         // Array de URLs das imagens
+  pageUrl     String?          // URL da página onde o bug ocorreu
+  userAgent   String?          // Informações do navegador
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  responses   ReportResponse[]
+}
+
+model ReportResponse {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  reportId  String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @db.ObjectId
+  message   String
+  isAdmin   Boolean  @default(false) // Se a resposta é de um admin
+  createdAt DateTime @default(now())
+}
+
+// ==================== NOTIFICAÇÕES ====================
+
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @db.ObjectId
+  title     String
+  message   String
+  type      String   @default("info") // info | success | warning | report
+  read      Boolean  @default(false)
+  reportId  String?  @db.ObjectId // Referência opcional ao report
+  createdAt DateTime @default(now())
 }

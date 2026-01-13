@@ -20,6 +20,8 @@ const clientSchema = z.object({
   allergies: z.string().optional(),
   medicalNotes: z.string().optional(),
   notes: z.string().optional(),
+  firstContact: z.string().optional(),
+  lastContact: z.string().optional(),
 })
 
 type ClientFormData = z.infer<typeof clientSchema>
@@ -63,6 +65,8 @@ export default function ClientForm() {
         allergies: client.allergies || '',
         medicalNotes: client.medicalNotes || '',
         notes: client.notes || '',
+        firstContact: client.firstContact ? client.firstContact.split('T')[0] : '',
+        lastContact: client.lastContact ? client.lastContact.split('T')[0] : '',
       })
     }
   }, [client, reset])
@@ -112,6 +116,8 @@ export default function ClientForm() {
       allergies: data.allergies || undefined,
       medicalNotes: data.medicalNotes || undefined,
       notes: data.notes || undefined,
+      firstContact: data.firstContact || undefined,
+      lastContact: data.lastContact || undefined,
     }
 
     if (isEditing) {
@@ -191,6 +197,16 @@ export default function ClientForm() {
               {...register('birthDate')}
             />
             <Input label="Cidade" placeholder="Cidade" {...register('city')} />
+            <Input
+              label="Primeiro Contato"
+              type="date"
+              {...register('firstContact')}
+            />
+            <Input
+              label="Último Contato"
+              type="date"
+              {...register('lastContact')}
+            />
             <div className="md:col-span-2">
               <Input
                 label="Endereço"

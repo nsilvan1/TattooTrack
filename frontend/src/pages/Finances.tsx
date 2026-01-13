@@ -4,19 +4,19 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
-  Plus,
-  Calendar,
-  Filter,
   Trash2,
-  Edit2,
   ArrowUpCircle,
   ArrowDownCircle,
   Loader2,
-  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  PieChart,
+  Wallet,
+  Filter,
 } from 'lucide-react'
 import { Card, CardContent, Button, Input, Modal } from '../components/ui'
 import { transactionsApi, categoriesApi, financesApi } from '../services/api'
-import type { Transaction, Category, CreateTransactionData, TransactionType, FinancialSummary, CategorySummary } from '../types'
+import type { Transaction, CreateTransactionData, TransactionType } from '../types'
 
 interface TransactionFormData {
   type: TransactionType
@@ -36,6 +36,16 @@ const initialFormData: TransactionFormData = {
   notes: '',
 }
 
+const MONTHS_SHORT = [
+  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+]
+
+const MONTHS = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+]
+
 export default function Finances() {
   const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
@@ -45,13 +55,41 @@ export default function Finances() {
   const [filterType, setFilterType] = useState<TransactionType | ''>('')
   const [filterCategoryId, setFilterCategoryId] = useState('')
 
-  // Date filters - default to current month
+  // Date navigation - default to current month
   const now = new Date()
-  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  const [currentMonth, setCurrentMonth] = useState(now.getMonth())
+  const [currentYear, setCurrentYear] = useState(now.getFullYear())
 
-  const [startDate, setStartDate] = useState(firstDayOfMonth.toISOString().split('T')[0])
-  const [endDate, setEndDate] = useState(lastDayOfMonth.toISOString().split('T')[0])
+  const firstDayOfMonth = new Date(currentYear, currentMonth, 1)
+  const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0)
+  const startDate = firstDayOfMonth.toISOString().split('T')[0]
+  const endDate = lastDayOfMonth.toISOString().split('T')[0]
+
+  // Navigation functions
+  const goToPreviousMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11)
+      setCurrentYear(currentYear - 1)
+    } else {
+      setCurrentMonth(currentMonth - 1)
+    }
+  }
+
+  const goToNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0)
+      setCurrentYear(currentYear + 1)
+    } else {
+      setCurrentMonth(currentMonth + 1)
+    }
+  }
+
+  const goToCurrentMonth = () => {
+    setCurrentMonth(now.getMonth())
+    setCurrentYear(now.getFullYear())
+  }
+
+  const isCurrentMonth = currentMonth === now.getMonth() && currentYear === now.getFullYear()
 
   // Queries
   const { data: categories = [], isLoading: loadingCategories } = useQuery({
@@ -176,238 +214,333 @@ export default function Finances() {
 
   const filteredCategories = categories.filter(c => c.type === formData.type)
 
-  const formatCurrency = (value: number) => `R$ ${value.toFixed(2)}`
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value)
+  }
+
+  const formatCurrencyCompact = (value: number) => {
+    if (value >= 1000) {
+      return `R$ ${(value / 1000).toFixed(1)}k`
+    }
+    return formatCurrency(value)
+  }
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
-    return date.toLocaleDateString('pt-BR')
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
   }
 
   const isFormValid = formData.amount && formData.description && formData.categoryId && formData.date
 
+  // Separate income and expense categories for breakdown
+  const incomeBreakdown = categoryBreakdown.filter(item => item.category?.type === 'income')
+  const expenseBreakdown = categoryBreakdown.filter(item => item.category?.type === 'expense')
+
+  // Calculate totals for percentage calculations within each type
+  const totalIncome = incomeBreakdown.reduce((sum, item) => sum + item.total, 0)
+  const totalExpense = expenseBreakdown.reduce((sum, item) => sum + item.total, 0)
+
+  // Filter categories for dropdown
+  const filterCategories = filterType
+    ? categories.filter(c => c.type === filterType)
+    : categories
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Financeiro</h1>
-          <p className="text-text-secondary mt-1">Gerencie suas receitas e despesas</p>
+          <p className="text-text-secondary text-sm">Controle de receitas e despesas</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex gap-2">
           <Button
-            variant="secondary"
-            onClick={() => openNewTransaction('expense')}
-            className="flex items-center gap-2"
-          >
-            <ArrowDownCircle className="w-4 h-4 text-red-400" />
-            Nova Despesa
-          </Button>
-          <Button
+            size="sm"
             onClick={() => openNewTransaction('income')}
-            className="flex items-center gap-2"
+            className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30"
           >
-            <ArrowUpCircle className="w-4 h-4" />
-            Nova Receita
+            <ArrowUpCircle className="w-4 h-4 mr-1.5" />
+            Receita
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => openNewTransaction('expense')}
+            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
+          >
+            <ArrowDownCircle className="w-4 h-4 mr-1.5" />
+            Despesa
           </Button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-emerald-500/20">
-              <TrendingUp className="w-6 h-6 text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-text-secondary text-sm">Receitas</p>
-              <p className="text-2xl font-bold text-emerald-400">
-                {loadingSummary ? '...' : formatCurrency(summary?.totalIncome || 0)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-red-500/20">
-              <TrendingDown className="w-6 h-6 text-red-400" />
-            </div>
-            <div>
-              <p className="text-text-secondary text-sm">Despesas</p>
-              <p className="text-2xl font-bold text-red-400">
-                {loadingSummary ? '...' : formatCurrency(summary?.totalExpense || 0)}
-              </p>
+      {/* Summary Cards - Compact */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="bg-emerald-500/5 border-emerald-500/20">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-text-secondary text-xs">Receitas</p>
+                <p className="text-lg font-bold text-emerald-400">
+                  {loadingSummary ? '...' : formatCurrency(summary?.totalIncome || 0)}
+                </p>
+              </div>
+              <TrendingUp className="w-5 h-5 text-emerald-400/50" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className={`p-3 rounded-xl ${(summary?.balance || 0) >= 0 ? 'bg-violet-500/20' : 'bg-red-500/20'}`}>
-              <DollarSign className={`w-6 h-6 ${(summary?.balance || 0) >= 0 ? 'text-violet-400' : 'text-red-400'}`} />
+        <Card className="bg-red-500/5 border-red-500/20">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-text-secondary text-xs">Despesas</p>
+                <p className="text-lg font-bold text-red-400">
+                  {loadingSummary ? '...' : formatCurrency(summary?.totalExpense || 0)}
+                </p>
+              </div>
+              <TrendingDown className="w-5 h-5 text-red-400/50" />
             </div>
-            <div>
-              <p className="text-text-secondary text-sm">Saldo</p>
-              <p className={`text-2xl font-bold ${(summary?.balance || 0) >= 0 ? 'text-violet-400' : 'text-red-400'}`}>
-                {loadingSummary ? '...' : formatCurrency(summary?.balance || 0)}
-              </p>
+          </CardContent>
+        </Card>
+
+        <Card className={`${(summary?.balance || 0) >= 0 ? 'bg-violet-500/5 border-violet-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-text-secondary text-xs">Saldo</p>
+                <p className={`text-lg font-bold ${(summary?.balance || 0) >= 0 ? 'text-violet-400' : 'text-red-400'}`}>
+                  {loadingSummary ? '...' : formatCurrency(summary?.balance || 0)}
+                </p>
+              </div>
+              <DollarSign className={`w-5 h-5 ${(summary?.balance || 0) >= 0 ? 'text-violet-400/50' : 'text-red-400/50'}`} />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Filters Bar */}
       <Card>
-        <CardContent>
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-text-secondary" />
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-1.5 glass rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-              />
-              <span className="text-text-secondary">ate</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-1.5 glass rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-              />
+        <CardContent className="py-3 px-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Month Navigation */}
+            <div className="flex items-center gap-1 mr-2">
+              <button
+                onClick={goToPreviousMonth}
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4 text-text-secondary" />
+              </button>
+              <button
+                onClick={goToCurrentMonth}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  isCurrentMonth
+                    ? 'bg-violet-500/20 text-violet-400'
+                    : 'hover:bg-white/10 text-text-primary'
+                }`}
+              >
+                {MONTHS_SHORT[currentMonth]} {currentYear}
+              </button>
+              <button
+                onClick={goToNextMonth}
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <ChevronRight className="w-4 h-4 text-text-secondary" />
+              </button>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="w-px h-6 bg-white/10" />
+
+            {/* Type Filter */}
+            <div className="flex items-center gap-1.5">
               <Filter className="w-4 h-4 text-text-secondary" />
               <select
                 value={filterType}
-                onChange={(e) => setFilterType(e.target.value as TransactionType | '')}
-                className="px-3 py-1.5 glass rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-transparent"
+                onChange={(e) => {
+                  setFilterType(e.target.value as TransactionType | '')
+                  setFilterCategoryId('')
+                }}
+                className="px-2 py-1.5 text-sm rounded-lg bg-surface border border-white/10 text-text-primary focus:outline-none focus:ring-1 focus:ring-violet-500/50"
               >
-                <option value="">Todos os tipos</option>
+                <option value="">Todos</option>
                 <option value="income">Receitas</option>
                 <option value="expense">Despesas</option>
               </select>
-
-              <select
-                value={filterCategoryId}
-                onChange={(e) => setFilterCategoryId(e.target.value)}
-                className="px-3 py-1.5 glass rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-transparent"
-              >
-                <option value="">Todas as categorias</option>
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
             </div>
+
+            {/* Category Filter */}
+            <select
+              value={filterCategoryId}
+              onChange={(e) => setFilterCategoryId(e.target.value)}
+              className="px-2 py-1.5 text-sm rounded-lg bg-surface border border-white/10 text-text-primary focus:outline-none focus:ring-1 focus:ring-violet-500/50 max-w-[180px]"
+            >
+              <option value="">Todas categorias</option>
+              {filterCategories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+
+            {/* Clear filters */}
+            {(filterType || filterCategoryId) && (
+              <button
+                onClick={() => {
+                  setFilterType('')
+                  setFilterCategoryId('')
+                }}
+                className="text-xs text-text-secondary hover:text-text-primary transition-colors"
+              >
+                Limpar
+              </button>
+            )}
+
+            {/* Transaction count */}
+            <span className="ml-auto text-xs text-text-secondary">
+              {transactions.length} transação{transactions.length !== 1 ? 'ões' : ''}
+            </span>
           </div>
         </CardContent>
       </Card>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Content Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         {/* Transactions List */}
-        <div className="lg:col-span-2">
-          <Card>
-            <div className="px-6 py-4 border-b border-white/10">
-              <h2 className="font-semibold text-text-primary">Transacoes</h2>
+        <div className="xl:col-span-2">
+          <Card className="h-full">
+            <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-violet-400" />
+              <h2 className="font-medium text-text-primary text-sm">Transações</h2>
             </div>
-            <CardContent className="p-0">
-              {loadingTransactions ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 text-text-secondary animate-spin" />
-                </div>
-              ) : transactions.length === 0 ? (
-                <div className="text-center py-12 text-text-secondary">
-                  <DollarSign className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>Nenhuma transacao encontrada</p>
-                  <p className="text-sm mt-1">Adicione sua primeira receita ou despesa</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-white/10">
+
+            {loadingTransactions ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-5 h-5 text-text-secondary animate-spin" />
+              </div>
+            ) : transactions.length === 0 ? (
+              <div className="text-center py-10 px-4">
+                <DollarSign className="w-10 h-10 mx-auto mb-2 text-text-secondary/30" />
+                <p className="text-text-secondary text-sm">Nenhuma transação em {MONTHS[currentMonth]}</p>
+              </div>
+            ) : (
+              <div className="max-h-[400px] overflow-y-auto scrollbar-thin">
+                <div className="divide-y divide-white/5">
                   {transactions.map(transaction => (
                     <div
                       key={transaction.id}
-                      className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
+                      className="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
                       onClick={() => openEditTransaction(transaction)}
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center"
-                          style={{ backgroundColor: `${transaction.category.color}20` }}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: `${transaction.category.color}15` }}
                         >
                           {transaction.type === 'income' ? (
-                            <ArrowUpCircle className="w-5 h-5" style={{ color: transaction.category.color }} />
+                            <TrendingUp className="w-4 h-4" style={{ color: transaction.category.color }} />
                           ) : (
-                            <ArrowDownCircle className="w-5 h-5" style={{ color: transaction.category.color }} />
+                            <TrendingDown className="w-4 h-4" style={{ color: transaction.category.color }} />
                           )}
                         </div>
-                        <div>
-                          <p className="text-text-primary font-medium">{transaction.description}</p>
-                          <div className="flex items-center gap-2 text-sm text-text-secondary">
-                            <span
-                              className="px-2 py-0.5 rounded text-xs"
-                              style={{
-                                backgroundColor: `${transaction.category.color}20`,
-                                color: transaction.category.color,
-                              }}
-                            >
+                        <div className="min-w-0">
+                          <p className="text-text-primary text-sm font-medium truncate">{transaction.description}</p>
+                          <div className="flex items-center gap-1.5 text-xs text-text-secondary">
+                            <span>{formatDate(transaction.date)}</span>
+                            <span>•</span>
+                            <span className="truncate" style={{ color: transaction.category.color }}>
                               {transaction.category.name}
                             </span>
-                            <span>{formatDate(transaction.date)}</span>
-                            {transaction.isAutomatic && (
-                              <span className="text-xs text-violet-400">(automatico)</span>
-                            )}
                           </div>
                         </div>
                       </div>
-                      <p className={`font-semibold ${transaction.type === 'income' ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {transaction.type === 'income' ? '+' : '-'} {formatCurrency(transaction.amount)}
+                      <p className={`text-sm font-semibold shrink-0 ml-3 ${
+                        transaction.type === 'income' ? 'text-emerald-400' : 'text-red-400'
+                      }`}>
+                        {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
                       </p>
                     </div>
                   ))}
                 </div>
-              )}
-            </CardContent>
+              </div>
+            )}
           </Card>
         </div>
 
         {/* Category Breakdown */}
-        <div>
-          <Card>
-            <div className="px-6 py-4 border-b border-white/10">
-              <h2 className="font-semibold text-text-primary">Por Categoria</h2>
-            </div>
-            <CardContent>
-              {categoryBreakdown.length === 0 ? (
-                <p className="text-text-secondary text-center py-4">Sem dados</p>
-              ) : (
-                <div className="space-y-4">
-                  {categoryBreakdown.map(item => (
-                    <div key={item.category?.id}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-text-primary text-sm">{item.category?.name}</span>
-                        <span className="text-text-secondary text-sm">{formatCurrency(item.total)}</span>
+        <div className="space-y-4">
+          {/* Income Categories */}
+          {incomeBreakdown.length > 0 && (
+            <Card>
+              <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                <h3 className="font-medium text-text-primary text-sm">Receitas</h3>
+                <span className="ml-auto text-xs text-emerald-400">{formatCurrencyCompact(totalIncome)}</span>
+              </div>
+              <CardContent className="py-2 px-4 max-h-[160px] overflow-y-auto scrollbar-thin">
+                <div className="space-y-2">
+                  {incomeBreakdown.map(item => {
+                    const percentage = totalIncome > 0 ? (item.total / totalIncome) * 100 : 0
+                    return (
+                      <div key={item.category?.id} className="group">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-text-primary truncate">{item.category?.name}</span>
+                          <span className="text-text-secondary">{percentage.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-300"
+                            style={{ width: `${percentage}%`, backgroundColor: item.category?.color }}
+                          />
+                        </div>
                       </div>
-                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-300"
-                          style={{
-                            width: `${item.percentage}%`,
-                            backgroundColor: item.category?.color,
-                          }}
-                        />
-                      </div>
-                      <p className="text-xs text-text-secondary mt-1">
-                        {item.count} transacao(es) - {item.percentage.toFixed(1)}%
-                      </p>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Expense Categories */}
+          {expenseBreakdown.length > 0 && (
+            <Card>
+              <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-red-400" />
+                <h3 className="font-medium text-text-primary text-sm">Despesas</h3>
+                <span className="ml-auto text-xs text-red-400">{formatCurrencyCompact(totalExpense)}</span>
+              </div>
+              <CardContent className="py-2 px-4 max-h-[160px] overflow-y-auto scrollbar-thin">
+                <div className="space-y-2">
+                  {expenseBreakdown.map(item => {
+                    const percentage = totalExpense > 0 ? (item.total / totalExpense) * 100 : 0
+                    return (
+                      <div key={item.category?.id} className="group">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-text-primary truncate">{item.category?.name}</span>
+                          <span className="text-text-secondary">{percentage.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-300"
+                            style={{ width: `${percentage}%`, backgroundColor: item.category?.color }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Empty state */}
+          {incomeBreakdown.length === 0 && expenseBreakdown.length === 0 && !loadingSummary && (
+            <Card>
+              <CardContent className="text-center py-6">
+                <PieChart className="w-8 h-8 mx-auto mb-2 text-text-secondary/30" />
+                <p className="text-text-secondary text-xs">Dados aparecerão aqui</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -415,52 +548,57 @@ export default function Finances() {
       <Modal
         isOpen={showModal}
         onClose={closeModal}
-        title={editingTransaction ? 'Editar Transacao' : 'Nova Transacao'}
+        title={editingTransaction ? 'Editar Transação' : 'Nova Transação'}
       >
         <div className="space-y-4">
           {/* Type Toggle */}
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => {
-                setFormData({ ...formData, type: 'income', categoryId: '' })
-              }}
-              className={`flex-1 py-2 rounded-xl font-medium transition-all ${
+              onClick={() => setFormData({ ...formData, type: 'income', categoryId: '' })}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
                 formData.type === 'income'
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'glass text-text-secondary hover:text-text-primary'
+                  : 'glass text-text-secondary hover:text-text-primary hover:bg-white/5'
               }`}
             >
-              <ArrowUpCircle className="w-4 h-4 inline mr-2" />
+              <ArrowUpCircle className="w-4 h-4" />
               Receita
             </button>
             <button
               type="button"
-              onClick={() => {
-                setFormData({ ...formData, type: 'expense', categoryId: '' })
-              }}
-              className={`flex-1 py-2 rounded-xl font-medium transition-all ${
+              onClick={() => setFormData({ ...formData, type: 'expense', categoryId: '' })}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
                 formData.type === 'expense'
                   ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                  : 'glass text-text-secondary hover:text-text-primary'
+                  : 'glass text-text-secondary hover:text-text-primary hover:bg-white/5'
               }`}
             >
-              <ArrowDownCircle className="w-4 h-4 inline mr-2" />
+              <ArrowDownCircle className="w-4 h-4" />
               Despesa
             </button>
           </div>
 
-          <Input
-            label="Valor (R$)"
-            type="number"
-            placeholder="0.00"
-            value={formData.amount}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-          />
+          {/* Amount */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">Valor</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-sm">R$</span>
+              <input
+                type="number"
+                placeholder="0,00"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                className="w-full pl-10 pr-4 py-2.5 bg-surface border border-white/10 rounded-xl text-text-primary font-medium placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                step="0.01"
+                min="0"
+              />
+            </div>
+          </div>
 
           <Input
-            label="Descricao"
-            placeholder="Ex: Sessao de tatuagem, Compra de tinta..."
+            label="Descrição"
+            placeholder="Ex: Sessão de tatuagem..."
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           />
@@ -472,68 +610,74 @@ export default function Finances() {
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
           />
 
+          {/* Category Select */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1.5">Categoria</label>
             <select
               value={formData.categoryId}
               onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-              className="w-full px-3 py-2 glass rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-violet-500/50 bg-transparent"
+              className="w-full px-3 py-2.5 rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-violet-500/50 appearance-none cursor-pointer bg-surface border border-white/10"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 12px center',
+                backgroundSize: '16px',
+              }}
             >
-              <option value="">Selecione uma categoria</option>
+              <option value="" className="bg-surface text-text-secondary">Selecione...</option>
               {filteredCategories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                <option key={cat.id} value={cat.id} className="bg-surface text-text-primary">
+                  {cat.name}
+                </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">Observacoes (opcional)</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">
+              Observações <span className="text-text-secondary/50 font-normal">(opcional)</span>
+            </label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Anotacoes adicionais..."
+              placeholder="Anotações..."
               rows={2}
-              className="w-full px-3 py-2 glass rounded-xl text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
+              className="w-full px-3 py-2.5 bg-surface border border-white/10 rounded-xl text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none text-sm"
             />
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-4 border-t border-white/10">
+          <div className="flex items-center justify-between pt-3 border-t border-white/10">
             {editingTransaction && !editingTransaction.isAutomatic ? (
               showDeleteConfirm ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-red-400">Confirmar exclusao?</span>
-                  <Button variant="danger" size="sm" onClick={handleDelete}>
-                    Sim, excluir
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(false)}>
-                    Cancelar
-                  </Button>
+                  <span className="text-xs text-red-400">Confirmar?</span>
+                  <Button variant="danger" size="sm" onClick={handleDelete}>Sim</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(false)}>Não</Button>
                 </div>
               ) : (
-                <Button
-                  variant="ghost"
+                <button
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="text-red-400 hover:text-red-300"
+                  className="flex items-center gap-1.5 text-text-secondary hover:text-red-400 transition-colors text-sm"
                 >
-                  <Trash2 className="w-4 h-4 mr-2" />
+                  <Trash2 className="w-4 h-4" />
                   Excluir
-                </Button>
+                </button>
               )
             ) : (
               <div />
             )}
 
             <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={closeModal}>
-                Cancelar
-              </Button>
+              <Button variant="secondary" size="sm" onClick={closeModal}>Cancelar</Button>
               <Button
+                size="sm"
                 onClick={handleSubmit}
                 disabled={!isFormValid || createMutation.isPending || updateMutation.isPending}
+                className={formData.type === 'income' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'}
               >
                 {(createMutation.isPending || updateMutation.isPending) && (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
                 )}
                 {editingTransaction ? 'Salvar' : 'Criar'}
               </Button>
@@ -541,8 +685,8 @@ export default function Finances() {
           </div>
 
           {editingTransaction?.isAutomatic && (
-            <p className="text-xs text-amber-400 text-center">
-              Esta transacao foi gerada automaticamente e nao pode ser excluida.
+            <p className="text-xs text-amber-400 text-center bg-amber-500/10 rounded-lg py-2">
+              Transação automática - não pode ser editada
             </p>
           )}
         </div>

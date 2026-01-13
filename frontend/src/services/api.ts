@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Client, CreateClientData, UpdateClientData, Tag, PaginatedResponse, ClientFilters, Tattoo, Reference, Appointment, CreateAppointmentData, UpdateAppointmentData, AppointmentFilters, AppointmentStatus, Category, Transaction, CreateTransactionData, UpdateTransactionData, TransactionFilters, FinancialSummary, CategorySummary, TransactionType } from '../types'
+import type { Client, CreateClientData, UpdateClientData, Tag, PaginatedResponse, ClientFilters, Tattoo, Reference, Appointment, CreateAppointmentData, UpdateAppointmentData, AppointmentFilters, AppointmentStatus, Category, Transaction, CreateTransactionData, UpdateTransactionData, TransactionFilters, FinancialSummary, CategorySummary, TransactionType, ConversionStats, ProductCategory, Product, CreateProductData, UpdateProductData, ProductFilters, StockMovement, CreateStockMovementData, InventoryStats, BatchStockMovementData, BatchStockMovementResponse, Report, CreateReportData, UpdateReportData, ReportResponse, ReportStats, ReportStatus, ReportType, ReportPriority, Notification } from '../types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -29,6 +29,11 @@ export const clientsApi = {
 
   get: async (id: string): Promise<Client> => {
     const { data } = await api.get(`/clients/${id}`)
+    return data
+  },
+
+  getConversionStats: async (): Promise<ConversionStats> => {
+    const { data } = await api.get('/clients/stats/conversion')
     return data
   },
 
@@ -259,6 +264,171 @@ export const financesApi = {
 
     const { data } = await api.get(`/finances/by-category?${params}`)
     return data
+  },
+}
+
+// Inventory - Product Categories
+export const productCategoriesApi = {
+  list: async (): Promise<ProductCategory[]> => {
+    const { data } = await api.get('/inventory/categories')
+    return data
+  },
+
+  create: async (categoryData: { name: string; color: string; icon?: string }): Promise<ProductCategory> => {
+    const { data } = await api.post('/inventory/categories', categoryData)
+    return data
+  },
+
+  update: async (id: string, categoryData: { name: string; color: string; icon?: string }): Promise<ProductCategory> => {
+    const { data } = await api.put(`/inventory/categories/${id}`, categoryData)
+    return data
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/inventory/categories/${id}`)
+  },
+}
+
+// Inventory - Products
+export const productsApi = {
+  list: async (filters?: ProductFilters): Promise<Product[]> => {
+    const params = new URLSearchParams()
+    if (filters?.search) params.append('search', filters.search)
+    if (filters?.categoryId) params.append('categoryId', filters.categoryId)
+    if (filters?.lowStock) params.append('lowStock', 'true')
+    if (filters?.isActive !== undefined) params.append('isActive', String(filters.isActive))
+
+    const { data } = await api.get(`/inventory/products?${params}`)
+    return data
+  },
+
+  get: async (id: string): Promise<Product & { movements: StockMovement[] }> => {
+    const { data } = await api.get(`/inventory/products/${id}`)
+    return data
+  },
+
+  create: async (productData: CreateProductData): Promise<Product> => {
+    const { data } = await api.post('/inventory/products', productData)
+    return data
+  },
+
+  update: async (id: string, productData: UpdateProductData): Promise<Product> => {
+    const { data } = await api.put(`/inventory/products/${id}`, productData)
+    return data
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/inventory/products/${id}`)
+  },
+}
+
+// Inventory - Stock Movements
+export const stockMovementsApi = {
+  list: async (filters?: { productId?: string; type?: string; startDate?: string; endDate?: string; appointmentId?: string; limit?: number }): Promise<StockMovement[]> => {
+    const params = new URLSearchParams()
+    if (filters?.productId) params.append('productId', filters.productId)
+    if (filters?.type) params.append('type', filters.type)
+    if (filters?.startDate) params.append('startDate', filters.startDate)
+    if (filters?.endDate) params.append('endDate', filters.endDate)
+    if (filters?.appointmentId) params.append('appointmentId', filters.appointmentId)
+    if (filters?.limit) params.append('limit', String(filters.limit))
+
+    const { data } = await api.get(`/inventory/movements?${params}`)
+    return data
+  },
+
+  create: async (movementData: CreateStockMovementData): Promise<StockMovement & { newStock: number }> => {
+    const { data } = await api.post('/inventory/movements', movementData)
+    return data
+  },
+
+  createBatch: async (batchData: BatchStockMovementData): Promise<BatchStockMovementResponse> => {
+    const { data } = await api.post('/inventory/movements/batch', batchData)
+    return data
+  },
+}
+
+// Inventory - Stats
+export const inventoryApi = {
+  getStats: async (): Promise<InventoryStats> => {
+    const { data } = await api.get('/inventory/stats')
+    return data
+  },
+}
+
+// Reports
+export const reportsApi = {
+  list: async (filters?: { status?: ReportStatus; type?: ReportType; priority?: ReportPriority }): Promise<Report[]> => {
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.type) params.append('type', filters.type)
+    if (filters?.priority) params.append('priority', filters.priority)
+    const { data } = await api.get(`/reports?${params}`)
+    return data
+  },
+
+  get: async (id: string): Promise<Report> => {
+    const { data } = await api.get(`/reports/${id}`)
+    return data
+  },
+
+  create: async (reportData: CreateReportData): Promise<Report> => {
+    const { data } = await api.post('/reports', reportData)
+    return data
+  },
+
+  update: async (id: string, reportData: UpdateReportData): Promise<Report> => {
+    const { data } = await api.patch(`/reports/${id}`, reportData)
+    return data
+  },
+
+  addResponse: async (reportId: string, message: string): Promise<ReportResponse> => {
+    const { data } = await api.post(`/reports/${reportId}/responses`, { message })
+    return data
+  },
+
+  uploadScreenshots: async (files: File[]): Promise<{ urls: string[] }> => {
+    const formData = new FormData()
+    files.forEach(file => formData.append('screenshots', file))
+    const { data } = await api.post('/reports/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
+  },
+
+  getStats: async (): Promise<ReportStats> => {
+    const { data } = await api.get('/reports/admin/stats')
+    return data
+  },
+}
+
+// Notifications
+export const notificationsApi = {
+  list: async (): Promise<Notification[]> => {
+    const { data } = await api.get('/notifications')
+    return data
+  },
+
+  getUnreadCount: async (): Promise<{ count: number }> => {
+    const { data } = await api.get('/notifications/unread-count')
+    return data
+  },
+
+  markAsRead: async (id: string): Promise<void> => {
+    await api.patch(`/notifications/${id}/read`)
+  },
+
+  markAllAsRead: async (): Promise<void> => {
+    await api.patch('/notifications/read-all')
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/notifications/${id}`)
+  },
+
+  send: async (data: { userId: string; title: string; message: string; type?: string; reportId?: string }): Promise<Notification> => {
+    const { data: response } = await api.post('/notifications/send', data)
+    return response
   },
 }
 

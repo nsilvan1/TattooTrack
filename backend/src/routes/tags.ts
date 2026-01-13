@@ -10,14 +10,27 @@ const tagSchema = z.object({
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
 })
 
-// List all tags
+// List all tags with client count
 router.get('/', async (req, res) => {
   try {
     const tags = await prisma.tag.findMany({
       orderBy: { name: 'asc' },
+      include: {
+        _count: {
+          select: { clients: true }
+        }
+      }
     })
 
-    res.json(tags)
+    // Transform to include clientCount
+    const tagsWithCount = tags.map(tag => ({
+      id: tag.id,
+      name: tag.name,
+      color: tag.color,
+      clientCount: tag._count.clients,
+    }))
+
+    res.json(tagsWithCount)
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: 'Failed to fetch tags' })

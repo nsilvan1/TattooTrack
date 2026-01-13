@@ -108,4 +108,46 @@
     scrollbar-width: thin;
     scrollbar-color: rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.05);
   }
+
+  /* Scrollbar utilities */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  }
+
+  /* Select dropdown styling */
+  select {
+    background-color: var(--color-surface-solid);
+    color: var(--color-text-primary);
+  }
+
+  select option {
+    background-color: #1e2642;
+    color: var(--color-text-primary);
+    padding: 8px;
+  }
+
+  select option:hover,
+  select option:focus,
+  select option:checked {
+    background-color: #2a3352;
+  }
 }

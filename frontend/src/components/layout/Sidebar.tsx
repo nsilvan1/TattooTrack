@@ -1,25 +1,31 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, Calendar, DollarSign, Tag, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Calendar, DollarSign, Package, Tag, Settings, LogOut, Bug, Shield } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import ReportBugModal from '../ReportBugModal'
+import NotificationBell from '../NotificationBell'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Clientes', href: '/clients', icon: Users },
   { name: 'Agendamentos', href: '/appointments', icon: Calendar },
   { name: 'Financeiro', href: '/finances', icon: DollarSign },
+  { name: 'Estoque', href: '/inventory', icon: Package },
   { name: 'Tags', href: '/tags', icon: Tag },
-  { name: 'Configuracoes', href: '/settings', icon: Settings },
+  { name: 'Configurações', href: '/settings', icon: Settings },
 ]
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
+  const [showReportModal, setShowReportModal] = useState(false)
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 glass-strong border-r border-white/10 flex flex-col">
-      <div className="p-6 border-b border-white/10">
+      <div className="p-6 border-b border-white/10 flex items-center justify-between">
         <h1 className="text-xl font-bold text-text-primary tracking-tight">
           Tattoo<span className="bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">Track</span>
         </h1>
+        <NotificationBell />
       </div>
 
       <nav className="flex-1 p-4">
@@ -68,6 +74,32 @@ export default function Sidebar() {
           </div>
         )}
 
+        {/* Admin link */}
+        {user?.isAdmin && (
+          <NavLink
+            to="/admin/reports"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 mb-2 ${
+                isActive
+                  ? 'bg-violet-500/20 text-violet-400'
+                  : 'text-text-secondary hover:text-violet-400 hover:bg-violet-500/10'
+              }`
+            }
+          >
+            <Shield className="w-5 h-5" />
+            Admin Reports
+          </NavLink>
+        )}
+
+        {/* Report bug button */}
+        <button
+          onClick={() => setShowReportModal(true)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-text-secondary hover:text-amber-400 hover:bg-amber-500/10 transition-all duration-200 mb-2"
+        >
+          <Bug className="w-5 h-5" />
+          Reportar Problema
+        </button>
+
         {/* Logout button */}
         <button
           onClick={logout}
@@ -81,6 +113,9 @@ export default function Sidebar() {
           <p className="text-xs text-text-secondary">Versão 1.0.0</p>
         </div>
       </div>
+
+      {/* Report Bug Modal */}
+      <ReportBugModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} />
     </aside>
   )
 }

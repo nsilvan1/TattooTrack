@@ -1,24 +1,30 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Edit, Trash2, Tag as TagIcon } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Edit, Trash2, Tag as TagIcon, Users, Search, LayoutGrid, List, TrendingUp } from 'lucide-react'
 import { Button, Card, CardContent, Modal, Input, EmptyState } from '../components/ui'
 import { tagsApi } from '../services/api'
 import type { Tag } from '../types'
 
 const defaultColors = [
-  '#FCD34D', // Amarelo
-  '#60A5FA', // Azul
-  '#A78BFA', // Roxo
-  '#4ADE80', // Verde
-  '#FB923C', // Laranja
-  '#FBBF24', // Dourado
-  '#F87171', // Vermelho
-  '#38BDF8', // Cyan
-  '#E879F9', // Rosa
-  '#34D399', // Esmeralda
+  '#8B5CF6', // Violet
+  '#EC4899', // Pink
+  '#F59E0B', // Amber
+  '#10B981', // Emerald
+  '#3B82F6', // Blue
+  '#EF4444', // Red
+  '#06B6D4', // Cyan
+  '#F97316', // Orange
+  '#84CC16', // Lime
+  '#6366F1', // Indigo
+  '#14B8A6', // Teal
+  '#A855F7', // Purple
 ]
 
+type ViewMode = 'grid' | 'list'
+
 export default function Tags() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [editingTag, setEditingTag] = useState<Tag | null>(null)
@@ -26,11 +32,35 @@ export default function Tags() {
   const [tagColor, setTagColor] = useState(defaultColors[0])
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletingTag, setDeletingTag] = useState<Tag | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
 
   const { data: tags, isLoading } = useQuery({
     queryKey: ['tags'],
     queryFn: tagsApi.list,
   })
+
+  const filteredTags = useMemo(() => {
+    if (!tags) return []
+    if (!searchQuery) return tags
+    return tags.filter((tag: Tag) =>
+      tag.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  }, [tags, searchQuery])
+
+  const stats = useMemo(() => {
+    if (!tags) return { total: 0, totalClients: 0, avgPerTag: 0, mostUsed: null }
+    const totalClients = tags.reduce((sum: number, tag: Tag) => sum + (tag.clientCount || 0), 0)
+    const mostUsed = tags.reduce((max: Tag | null, tag: Tag) =>
+      !max || (tag.clientCount || 0) > (max.clientCount || 0) ? tag : max
+    , null as Tag | null)
+    return {
+      total: tags.length,
+      totalClients,
+      avgPerTag: tags.length > 0 ? (totalClients / tags.length).toFixed(1) : 0,
+      mostUsed,
+    }
+  }, [tags])
 
   const createMutation = useMutation({
     mutationFn: () => tagsApi.create(tagName, tagColor),
@@ -65,7 +95,8 @@ export default function Tags() {
     } else {
       setEditingTag(null)
       setTagName('')
-      setTagColor(defaultColors[0])
+      // Select a random color for new tags
+      setTagColor(defaultColors[Math.floor(Math.random() * defaultColors.length)])
     }
     setShowModal(true)
   }
@@ -88,83 +119,261 @@ export default function Tags() {
     }
   }
 
-  const handleDelete = (tag: Tag) => {
+  const handleDelete = (tag: Tag, e: React.MouseEvent) => {
+    e.stopPropagation()
     setDeletingTag(tag)
     setShowDeleteModal(true)
   }
 
+  const handleTagClick = (tag: Tag) => {
+    navigate(`/clients?tagId=${tag.id}`)
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Tags</h1>
-          <p className="text-text-secondary mt-1">Organize seus clientes com tags personalizadas</p>
+          <h1 className="text-xl font-bold text-text-primary">Tags</h1>
+          <p className="text-sm text-text-secondary">Organize seus clientes com tags</p>
         </div>
-        <Button onClick={() => handleOpenModal()}>
+        <Button size="sm" onClick={() => handleOpenModal()}>
           <Plus className="w-4 h-4" />
           Nova Tag
         </Button>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card className="glass-strong">
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-violet-500/20">
+              <TagIcon className="w-4 h-4 text-violet-400" />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-text-primary">{stats.total}</p>
+              <p className="text-xs text-text-secondary">Total de Tags</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-strong">
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-cyan-500/20">
+              <Users className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-text-primary">{stats.totalClients}</p>
+              <p className="text-xs text-text-secondary">Clientes Tagueados</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-strong">
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-500/20">
+              <TrendingUp className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-text-primary">{stats.avgPerTag}</p>
+              <p className="text-xs text-text-secondary">Média por Tag</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-strong">
+          <CardContent className="p-3 flex items-center gap-3">
+            {stats.mostUsed ? (
+              <>
+                <div
+                  className="p-2 rounded-lg"
+                  style={{ backgroundColor: `${stats.mostUsed.color}20` }}
+                >
+                  <TagIcon className="w-4 h-4" style={{ color: stats.mostUsed.color }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-lg font-bold text-text-primary truncate">{stats.mostUsed.name}</p>
+                  <p className="text-xs text-text-secondary">Mais Usada ({stats.mostUsed.clientCount})</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="p-2 rounded-lg bg-white/10">
+                  <TagIcon className="w-4 h-4 text-text-secondary" />
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-text-primary">-</p>
+                  <p className="text-xs text-text-secondary">Mais Usada</p>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and View Toggle */}
+      <Card>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+              <Input
+                placeholder="Buscar tag..."
+                className="pl-9 h-9 text-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex bg-white/5 rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === 'grid'
+                    ? 'bg-violet-500/20 text-violet-400'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+                title="Grid"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-violet-500/20 text-violet-400'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+                title="Lista"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tags Content */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
+        <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3' : 'space-y-2'}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <Card key={i} className="animate-pulse">
-              <CardContent className="h-20" />
+              <CardContent className={viewMode === 'grid' ? 'h-24' : 'h-14'} />
             </Card>
           ))}
         </div>
-      ) : !tags || tags.length === 0 ? (
+      ) : filteredTags.length === 0 ? (
         <Card>
           <EmptyState
-            icon={<TagIcon className="w-8 h-8" />}
-            title="Nenhuma tag criada"
-            description="Crie tags para organizar seus clientes por status ou categoria"
+            icon={<TagIcon className="w-6 h-6" />}
+            title={searchQuery ? 'Nenhuma tag encontrada' : 'Nenhuma tag criada'}
+            description={searchQuery ? 'Tente outra busca' : 'Crie tags para organizar seus clientes'}
             action={
-              <Button onClick={() => handleOpenModal()}>
-                <Plus className="w-4 h-4" />
-                Criar Primeira Tag
-              </Button>
+              !searchQuery ? (
+                <Button size="sm" onClick={() => handleOpenModal()}>
+                  <Plus className="w-4 h-4" />
+                  Criar Tag
+                </Button>
+              ) : undefined
             }
           />
         </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {tags.map((tag: Tag) => (
-            <Card key={tag.id} className="hover:bg-white/5 hover:border-white/20 transition-colors">
-              <CardContent className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {filteredTags.map((tag: Tag) => (
+            <Card
+              key={tag.id}
+              className="group hover:bg-white/5 hover:border-white/20 transition-all cursor-pointer"
+              onClick={() => handleTagClick(tag)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-3">
                   <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110"
                     style={{ backgroundColor: `${tag.color}20` }}
                   >
                     <TagIcon className="w-5 h-5" style={{ color: tag.color }} />
                   </div>
-                  <div>
-                    <p className="font-medium text-text-primary">{tag.name}</p>
-                    <p className="text-sm text-text-secondary">{tag.color}</p>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleOpenModal(tag)
+                      }}
+                      className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      <Edit className="w-3.5 h-3.5 text-text-secondary" />
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(tag, e)}
+                      className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => handleOpenModal(tag)}
-                    className="p-2 hover:bg-surface-hover rounded-lg transition-colors"
-                  >
-                    <Edit className="w-4 h-4 text-text-secondary" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(tag)}
-                    className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-400" />
-                  </button>
-                </div>
+                <p className="font-medium text-text-primary truncate">{tag.name}</p>
+                <p className="text-sm text-text-secondary mt-0.5">
+                  {tag.clientCount || 0} cliente{(tag.clientCount || 0) !== 1 ? 's' : ''}
+                </p>
               </CardContent>
             </Card>
           ))}
         </div>
+      ) : (
+        <Card>
+          <div className="divide-y divide-white/5">
+            {filteredTags.map((tag: Tag) => (
+              <div
+                key={tag.id}
+                className="flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer group"
+                onClick={() => handleTagClick(tag)}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `${tag.color}20` }}
+                  >
+                    <TagIcon className="w-4 h-4" style={{ color: tag.color }} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-text-primary truncate">{tag.name}</p>
+                    <p className="text-xs text-text-secondary">
+                      {tag.clientCount || 0} cliente{(tag.clientCount || 0) !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-xs px-2.5 py-1 rounded-full font-medium"
+                    style={{ backgroundColor: `${tag.color}20`, color: tag.color }}
+                  >
+                    {tag.name}
+                  </span>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleOpenModal(tag)
+                      }}
+                      className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      <Edit className="w-3.5 h-3.5 text-text-secondary" />
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(tag, e)}
+                      className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
 
+      {/* Create/Edit Modal */}
       <Modal
         isOpen={showModal}
         onClose={handleCloseModal}
@@ -173,42 +382,55 @@ export default function Tags() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             label="Nome da Tag"
-            placeholder="Ex: Orçamento, Agendado, VIP..."
+            placeholder="Ex: VIP, Orçamento, Retorno..."
             value={tagName}
             onChange={(e) => setTagName(e.target.value)}
             autoFocus
           />
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2">Cor</label>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-6 gap-2">
               {defaultColors.map((color) => (
                 <button
                   key={color}
                   type="button"
                   onClick={() => setTagColor(color)}
-                  className={`w-8 h-8 rounded-full transition-all ${
-                    tagColor === color ? 'ring-2 ring-offset-2 ring-offset-surface' : ''
+                  className={`w-full aspect-square rounded-lg transition-all ${
+                    tagColor === color
+                      ? 'ring-2 ring-offset-2 ring-offset-surface scale-110'
+                      : 'hover:scale-105'
                   }`}
-                  style={{ backgroundColor: color, ['--tw-ring-color' as string]: color }}
+                  style={{
+                    backgroundColor: color,
+                    ['--tw-ring-color' as string]: color
+                  }}
                 />
               ))}
             </div>
           </div>
-          <div className="pt-2">
-            <div className="flex items-center gap-2 mb-4">
+          <div className="pt-2 pb-2">
+            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
               <span className="text-sm text-text-secondary">Preview:</span>
-              <span
-                className="text-sm px-3 py-1 rounded-full font-medium"
-                style={{
-                  backgroundColor: `${tagColor}20`,
-                  color: tagColor,
-                }}
-              >
-                {tagName || 'Nome da tag'}
-              </span>
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-6 h-6 rounded-md flex items-center justify-center"
+                  style={{ backgroundColor: `${tagColor}20` }}
+                >
+                  <TagIcon className="w-3.5 h-3.5" style={{ color: tagColor }} />
+                </div>
+                <span
+                  className="text-sm px-3 py-1 rounded-full font-medium"
+                  style={{
+                    backgroundColor: `${tagColor}20`,
+                    color: tagColor,
+                  }}
+                >
+                  {tagName || 'Nome da tag'}
+                </span>
+              </div>
             </div>
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="secondary" onClick={handleCloseModal}>
               Cancelar
             </Button>
@@ -223,6 +445,7 @@ export default function Tags() {
         </form>
       </Modal>
 
+      {/* Delete Modal */}
       <Modal
         isOpen={showDeleteModal}
         onClose={() => {
@@ -231,27 +454,44 @@ export default function Tags() {
         }}
         title="Excluir Tag"
       >
-        <p className="text-text-secondary mb-6">
-          Tem certeza que deseja excluir a tag <strong>{deletingTag?.name}</strong>? Esta tag será
-          removida de todos os clientes.
-        </p>
-        <div className="flex justify-end gap-3">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setShowDeleteModal(false)
-              setDeletingTag(null)
-            }}
-          >
-            Cancelar
-          </Button>
-          <Button
-            variant="danger"
-            onClick={() => deleteMutation.mutate()}
-            isLoading={deleteMutation.isPending}
-          >
-            Excluir
-          </Button>
+        <div className="space-y-4">
+          {deletingTag && (
+            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: `${deletingTag.color}20` }}
+              >
+                <TagIcon className="w-5 h-5" style={{ color: deletingTag.color }} />
+              </div>
+              <div>
+                <p className="font-medium text-text-primary">{deletingTag.name}</p>
+                <p className="text-sm text-text-secondary">
+                  {deletingTag.clientCount || 0} cliente{(deletingTag.clientCount || 0) !== 1 ? 's' : ''} usam esta tag
+                </p>
+              </div>
+            </div>
+          )}
+          <p className="text-text-secondary">
+            Tem certeza que deseja excluir esta tag? Ela será removida de todos os clientes associados.
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowDeleteModal(false)
+                setDeletingTag(null)
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => deleteMutation.mutate()}
+              isLoading={deleteMutation.isPending}
+            >
+              Excluir Tag
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

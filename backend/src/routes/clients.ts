@@ -50,6 +50,8 @@ const clientSchema = z.object({
   allergies: z.string().optional().nullable(),
   medicalNotes: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  firstContact: z.string().optional().nullable(),
+  lastContact: z.string().optional().nullable(),
   tagIds: z.array(z.string()).optional(),
 })
 
@@ -112,6 +114,90 @@ router.get('/', async (req, res) => {
   }
 })
 
+// Get conversion stats
+router.get('/stats/conversion', async (req, res) => {
+  try {
+    const [
+      totalClients,
+      clientsWithTattoos,
+      clientsWithAppointments,
+      clientsWithCompletedAppointments,
+      totalTattoos,
+      totalAppointments,
+      completedAppointments,
+      cancelledAppointments,
+    ] = await Promise.all([
+      prisma.client.count(),
+      prisma.client.count({ where: { tattoos: { some: {} } } }),
+      prisma.client.count({ where: { appointments: { some: {} } } }),
+      prisma.client.count({ where: { appointments: { some: { status: 'completed' } } } }),
+      prisma.tattoo.count(),
+      prisma.appointment.count(),
+      prisma.appointment.count({ where: { status: 'completed' } }),
+      prisma.appointment.count({ where: { status: 'cancelled' } }),
+    ])
+
+    // Revenue from completed appointments
+    const revenueResult = await prisma.appointment.aggregate({
+      where: { status: 'completed', price: { not: null } },
+      _sum: { price: true },
+    })
+
+    // Revenue from tattoos
+    const tattooRevenueResult = await prisma.tattoo.aggregate({
+      where: { price: { not: null } },
+      _sum: { price: true },
+    })
+
+    // Clients by month (last 6 months)
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+    const recentClients = await prisma.client.findMany({
+      where: { createdAt: { gte: sixMonthsAgo } },
+      select: { createdAt: true },
+    })
+
+    const clientsByMonth: Record<string, number> = {}
+    recentClients.forEach(c => {
+      const key = `${c.createdAt.getFullYear()}-${String(c.createdAt.getMonth() + 1).padStart(2, '0')}`
+      clientsByMonth[key] = (clientsByMonth[key] || 0) + 1
+    })
+
+    res.json({
+      overview: {
+        totalClients,
+        clientsWithTattoos,
+        clientsWithAppointments,
+        clientsWithCompletedAppointments,
+        conversionRate: totalClients > 0 ? ((clientsWithTattoos / totalClients) * 100).toFixed(1) : 0,
+        appointmentConversionRate: clientsWithAppointments > 0
+          ? ((clientsWithCompletedAppointments / clientsWithAppointments) * 100).toFixed(1) : 0,
+      },
+      appointments: {
+        total: totalAppointments,
+        completed: completedAppointments,
+        cancelled: cancelledAppointments,
+        completionRate: totalAppointments > 0
+          ? ((completedAppointments / totalAppointments) * 100).toFixed(1) : 0,
+      },
+      tattoos: {
+        total: totalTattoos,
+        averagePerClient: clientsWithTattoos > 0
+          ? (totalTattoos / clientsWithTattoos).toFixed(1) : 0,
+      },
+      revenue: {
+        fromAppointments: revenueResult._sum.price || 0,
+        fromTattoos: tattooRevenueResult._sum.price || 0,
+      },
+      clientsByMonth,
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: 'Failed to fetch conversion stats' })
+  }
+})
+
 // Get single client
 router.get('/:id', async (req, res) => {
   try {
@@ -126,10 +212,13 @@ router.get('/:id', async (req, res) => {
           },
         },
         tattoos: {
-          orderBy: { createdAt: 'desc' },
+          orderBy: { date: 'desc' },
         },
         references: {
           orderBy: { createdAt: 'desc' },
+        },
+        appointments: {
+          orderBy: { date: 'desc' },
         },
       },
     })
@@ -149,12 +238,14 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const data = clientSchema.parse(req.body)
-    const { tagIds, birthDate, ...clientData } = data
+    const { tagIds, birthDate, firstContact, lastContact, ...clientData } = data
 
     const client = await prisma.client.create({
       data: {
         ...clientData,
         birthDate: birthDate ? new Date(birthDate) : null,
+        firstContact: firstContact ? new Date(firstContact) : null,
+        lastContact: lastContact ? new Date(lastContact) : null,
         tags: tagIds
           ? {
               create: tagIds.map((tagId) => ({
@@ -187,14 +278,22 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
     const data = clientSchema.partial().parse(req.body)
-    const { tagIds, birthDate, ...clientData } = data
+    const { tagIds, birthDate, firstContact, lastContact, ...clientData } = data
+
+    const updateData: any = { ...clientData }
+    if (birthDate !== undefined) {
+      updateData.birthDate = birthDate ? new Date(birthDate) : null
+    }
+    if (firstContact !== undefined) {
+      updateData.firstContact = firstContact ? new Date(firstContact) : null
+    }
+    if (lastContact !== undefined) {
+      updateData.lastContact = lastContact ? new Date(lastContact) : null
+    }
 
     const client = await prisma.client.update({
       where: { id },
-      data: {
-        ...clientData,
-        birthDate: birthDate ? new Date(birthDate) : undefined,
-      },
+      data: updateData,
       include: {
         tags: {
           include: {

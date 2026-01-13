@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Layout } from './components/layout'
-import { Landing, Dashboard, Clients, ClientForm, ClientDetail, Tags, Settings, Appointments, Finances, Login, Register, AuthCallback } from './pages'
+import { Landing, Dashboard, Clients, ClientForm, ClientDetail, Tags, Settings, Appointments, Finances, Inventory, Login, Register, AuthCallback, AdminReports } from './pages'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -42,8 +42,10 @@ function App() {
               <Route path="clients/:id/edit" element={<ClientForm />} />
               <Route path="appointments" element={<Appointments />} />
               <Route path="finances" element={<Finances />} />
+              <Route path="inventory" element={<Inventory />} />
               <Route path="tags" element={<Tags />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="admin/reports" element={<AdminReports />} />
             </Route>
           </Routes>
         </BrowserRouter>

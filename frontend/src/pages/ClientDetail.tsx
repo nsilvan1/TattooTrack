@@ -15,6 +15,14 @@ import {
   Image,
   Plus,
   X,
+  MessageCircle,
+  Clock,
+  Palette,
+  DollarSign,
+  CheckCircle2,
+  XCircle,
+  ClockIcon,
+  History,
 } from 'lucide-react'
 import { Button, Card, CardContent, Avatar, Tag, Modal, Textarea } from '../components/ui'
 import { clientsApi, tagsApi, referencesApi } from '../services/api'
@@ -158,8 +166,8 @@ export default function ClientDetail() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+        <div className="xl:col-span-3 space-y-6">
           <Card>
             <div className="px-6 py-4 border-b border-white/10">
               <h2 className="font-semibold text-text-primary">Informações de Contato</h2>
@@ -204,6 +212,28 @@ export default function ClientDetail() {
                   <div>
                     <p className="text-sm text-text-secondary">Data de Nascimento</p>
                     <p className="text-text-primary">{formatDate(client.birthDate)}</p>
+                  </div>
+                </div>
+              )}
+              {client.firstContact && (
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-emerald-500/20">
+                    <MessageCircle className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-text-secondary">Primeiro Contato</p>
+                    <p className="text-text-primary">{formatDate(client.firstContact)}</p>
+                  </div>
+                </div>
+              )}
+              {client.lastContact && (
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-cyan-500/20">
+                    <Clock className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-text-secondary">Último Contato</p>
+                    <p className="text-text-primary">{formatDate(client.lastContact)}</p>
                   </div>
                 </div>
               )}
@@ -263,6 +293,169 @@ export default function ClientDetail() {
               </CardContent>
             </Card>
           )}
+
+          {/* Client Summary Stats */}
+          <Card>
+            <div className="px-6 py-4 border-b border-white/10">
+              <h2 className="font-semibold text-text-primary flex items-center gap-2">
+                <History className="w-4 h-4 text-text-secondary" />
+                Resumo do Cliente
+              </h2>
+            </div>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white/5 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-accent">{client.tattoos?.length || 0}</p>
+                  <p className="text-sm text-text-secondary">Tatuagens</p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-emerald-400">{client.appointments?.filter(a => a.status === 'completed').length || 0}</p>
+                  <p className="text-sm text-text-secondary">Sessões</p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-cyan-400">
+                    R$ {((client.tattoos?.reduce((sum, t) => sum + (t.price || 0), 0) || 0) +
+                        (client.appointments?.filter(a => a.status === 'completed').reduce((sum, a) => sum + (a.price || 0), 0) || 0)).toLocaleString('pt-BR')}
+                  </p>
+                  <p className="text-sm text-text-secondary">Total Gasto</p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-amber-400">
+                    {client.appointments?.filter(a => a.status === 'scheduled' || a.status === 'confirmed').length || 0}
+                  </p>
+                  <p className="text-sm text-text-secondary">Agendados</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tattoos History */}
+          <Card>
+            <div className="px-6 py-4 border-b border-white/10">
+              <h2 className="font-semibold text-text-primary flex items-center gap-2">
+                <Palette className="w-4 h-4 text-accent" />
+                Histórico de Tatuagens
+              </h2>
+            </div>
+            <CardContent>
+              {!client.tattoos || client.tattoos.length === 0 ? (
+                <p className="text-text-secondary text-sm text-center py-4">
+                  Nenhuma tatuagem registrada
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {client.tattoos.map((tattoo) => (
+                    <div key={tattoo.id} className="bg-white/5 rounded-lg p-4 border-l-4 border-accent">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-medium text-text-primary">{tattoo.description}</h3>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <span className="text-xs bg-white/10 px-2 py-1 rounded-full text-text-secondary">
+                              {tattoo.bodyPart}
+                            </span>
+                            {tattoo.style && (
+                              <span className="text-xs bg-accent/20 px-2 py-1 rounded-full text-accent">
+                                {tattoo.style}
+                              </span>
+                            )}
+                            {tattoo.size && (
+                              <span className="text-xs bg-cyan-500/20 px-2 py-1 rounded-full text-cyan-400">
+                                {tattoo.size}
+                              </span>
+                            )}
+                            {tattoo.sessions && tattoo.sessions > 1 && (
+                              <span className="text-xs bg-amber-500/20 px-2 py-1 rounded-full text-amber-400">
+                                {tattoo.sessions} sessões
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {tattoo.price && (
+                            <p className="text-emerald-400 font-semibold">
+                              R$ {tattoo.price.toLocaleString('pt-BR')}
+                            </p>
+                          )}
+                          {tattoo.date && (
+                            <p className="text-xs text-text-secondary mt-1">
+                              {formatDate(tattoo.date)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {tattoo.notes && (
+                        <p className="text-sm text-text-secondary mt-2 italic">
+                          {tattoo.notes}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Appointments History */}
+          <Card>
+            <div className="px-6 py-4 border-b border-white/10">
+              <h2 className="font-semibold text-text-primary flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-cyan-400" />
+                Histórico de Agendamentos
+              </h2>
+            </div>
+            <CardContent>
+              {!client.appointments || client.appointments.length === 0 ? (
+                <p className="text-text-secondary text-sm text-center py-4">
+                  Nenhum agendamento registrado
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {client.appointments.map((appointment) => {
+                    const statusConfig: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
+                      scheduled: { color: 'text-amber-400 bg-amber-500/20', icon: <Clock className="w-3 h-3" />, label: 'Agendado' },
+                      confirmed: { color: 'text-blue-400 bg-blue-500/20', icon: <CheckCircle2 className="w-3 h-3" />, label: 'Confirmado' },
+                      in_progress: { color: 'text-purple-400 bg-purple-500/20', icon: <ClockIcon className="w-3 h-3" />, label: 'Em andamento' },
+                      completed: { color: 'text-emerald-400 bg-emerald-500/20', icon: <CheckCircle2 className="w-3 h-3" />, label: 'Concluído' },
+                      cancelled: { color: 'text-red-400 bg-red-500/20', icon: <XCircle className="w-3 h-3" />, label: 'Cancelado' },
+                    }
+                    const status = statusConfig[appointment.status] || statusConfig.scheduled
+
+                    return (
+                      <Link
+                        key={appointment.id}
+                        to={`/appointments?date=${appointment.date.split('T')[0]}`}
+                        className="block bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-1.5 rounded-full ${status.color}`}>
+                              {status.icon}
+                            </div>
+                            <div>
+                              <p className="font-medium text-text-primary text-sm">{appointment.title}</p>
+                              <p className="text-xs text-text-secondary">
+                                {formatDate(appointment.date)} às {appointment.startTime} • {appointment.estimatedHours}h
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            {appointment.price && (
+                              <p className="text-sm font-medium text-emerald-400">
+                                R$ {appointment.price.toLocaleString('pt-BR')}
+                              </p>
+                            )}
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${status.color}`}>
+                              {status.label}
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6">

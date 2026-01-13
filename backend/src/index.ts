@@ -9,6 +9,12 @@ import referencesRouter from './routes/references'
 import uploadRouter from './routes/upload'
 import appointmentsRouter from './routes/appointments'
 import authRouter from './routes/auth'
+import categoriesRouter from './routes/categories'
+import transactionsRouter from './routes/transactions'
+import financesRouter from './routes/finances'
+import inventoryRouter from './routes/inventory'
+import reportsRouter from './routes/reports'
+import notificationsRouter from './routes/notifications'
 
 const app = express()
 const PORT = process.env.PORT || 3333
@@ -31,6 +37,12 @@ app.use('/api/references', referencesRouter)
 app.use('/api/upload', uploadRouter)
 app.use('/api/appointments', appointmentsRouter)
 app.use('/api/auth', authRouter)
+app.use('/api/categories', categoriesRouter)
+app.use('/api/transactions', transactionsRouter)
+app.use('/api/finances', financesRouter)
+app.use('/api/inventory', inventoryRouter)
+app.use('/api/reports', reportsRouter)
+app.use('/api/notifications', notificationsRouter)
 
 // Health check
 app.get('/api/health', (req, res) => {
