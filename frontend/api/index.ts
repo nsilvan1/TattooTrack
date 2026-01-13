@@ -1044,6 +1044,576 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json(result)
     }
 
+    // ============ INVENTORY - PRODUCT CATEGORIES ====================
+    if (path === '/inventory/categories' && method === 'GET') {
+      const categories = await prisma.productCategory.findMany({
+        orderBy: { name: 'asc' },
+        include: {
+          _count: {
+            select: { products: true }
+          }
+        }
+      })
+
+      const categoriesWithCount = categories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        color: cat.color,
+        icon: cat.icon,
+        productCount: cat._count.products,
+        createdAt: cat.createdAt,
+        updatedAt: cat.updatedAt,
+      }))
+
+      return res.json(categoriesWithCount)
+    }
+
+    if (path === '/inventory/categories' && method === 'POST') {
+      const { name, color, icon } = parseBody(req)
+      const category = await prisma.productCategory.create({
+        data: { name, color, icon }
+      })
+      return res.status(201).json(category)
+    }
+
+    const inventoryCategoryMatch = path.match(/^\/inventory\/categories\/([^/]+)$/)
+    if (inventoryCategoryMatch) {
+      const id = inventoryCategoryMatch[1]
+
+      if (method === 'PUT') {
+        const { name, color, icon } = parseBody(req)
+        const category = await prisma.productCategory.update({
+          where: { id },
+          data: { name, color, icon }
+        })
+        return res.json(category)
+      }
+
+      if (method === 'DELETE') {
+        const productsCount = await prisma.product.count({ where: { categoryId: id } })
+        if (productsCount > 0) {
+          return res.status(400).json({
+            error: `Não é possível excluir. Existem ${productsCount} produto(s) nesta categoria.`
+          })
+        }
+        await prisma.productCategory.delete({ where: { id } })
+        return res.status(204).end()
+      }
+    }
+
+    // ============ INVENTORY - PRODUCTS ====================
+    if (path === '/inventory/products' && method === 'GET') {
+      const { search, categoryId, lowStock, isActive } = req.query as any
+      const where: any = {}
+
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: 'insensitive' } },
+          { sku: { contains: search, mode: 'insensitive' } },
+          { brand: { contains: search, mode: 'insensitive' } },
+        ]
+      }
+      if (categoryId) where.categoryId = categoryId
+      if (isActive !== undefined) where.isActive = isActive === 'true'
+
+      const products = await prisma.product.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        include: { category: true }
+      })
+
+      let productsWithAlerts = products.map(product => ({
+        ...product,
+        isLowStock: product.currentStock <= product.minStock,
+      }))
+
+      if (lowStock === 'true') {
+        productsWithAlerts = productsWithAlerts.filter(p => p.isLowStock)
+      }
+
+      return res.json(productsWithAlerts)
+    }
+
+    if (path === '/inventory/products' && method === 'POST') {
+      const data = parseBody(req)
+      const product = await prisma.product.create({
+        data: {
+          name: data.name,
+          description: data.description,
+          sku: data.sku,
+          categoryId: data.categoryId,
+          brand: data.brand,
+          purchaseUnit: data.purchaseUnit || 'un',
+          usageUnit: data.usageUnit || 'un',
+          quantityPerPurchaseUnit: data.quantityPerPurchaseUnit || 1,
+          currentStock: data.currentStock || 0,
+          minStock: data.minStock || 5,
+          costPrice: data.costPrice,
+          supplier: data.supplier,
+          notes: data.notes,
+          isActive: data.isActive !== false,
+        },
+        include: { category: true }
+      })
+
+      if (data.currentStock > 0) {
+        await prisma.stockMovement.create({
+          data: {
+            productId: product.id,
+            type: 'in',
+            quantity: data.currentStock,
+            unit: data.usageUnit || 'un',
+            reason: 'Estoque inicial',
+            costPerUnit: data.costPrice,
+          }
+        })
+      }
+
+      return res.status(201).json(product)
+    }
+
+    const inventoryProductMatch = path.match(/^\/inventory\/products\/([^/]+)$/)
+    if (inventoryProductMatch) {
+      const id = inventoryProductMatch[1]
+
+      if (method === 'GET') {
+        const product = await prisma.product.findUnique({
+          where: { id },
+          include: {
+            category: true,
+            movements: { orderBy: { createdAt: 'desc' }, take: 50 }
+          }
+        })
+        if (!product) return res.status(404).json({ error: 'Produto não encontrado' })
+        return res.json({ ...product, isLowStock: product.currentStock <= product.minStock })
+      }
+
+      if (method === 'PUT') {
+        const data = parseBody(req)
+        const product = await prisma.product.update({
+          where: { id },
+          data,
+          include: { category: true }
+        })
+        return res.json(product)
+      }
+
+      if (method === 'DELETE') {
+        await prisma.product.delete({ where: { id } })
+        return res.status(204).end()
+      }
+    }
+
+    // ============ INVENTORY - STOCK MOVEMENTS ====================
+    if (path === '/inventory/movements' && method === 'GET') {
+      const { productId, type, startDate, endDate, appointmentId, limit = '50' } = req.query as any
+      const where: any = {}
+
+      if (productId) where.productId = productId
+      if (type) where.type = type
+      if (appointmentId) where.appointmentId = appointmentId
+      if (startDate || endDate) {
+        where.createdAt = {}
+        if (startDate) where.createdAt.gte = new Date(startDate)
+        if (endDate) where.createdAt.lte = new Date(endDate)
+      }
+
+      const movements = await prisma.stockMovement.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: parseInt(limit),
+        include: {
+          product: {
+            select: { id: true, name: true, sku: true, usageUnit: true, purchaseUnit: true, quantityPerPurchaseUnit: true }
+          },
+          appointment: {
+            select: { id: true, title: true, client: { select: { id: true, name: true } } }
+          }
+        }
+      })
+
+      return res.json(movements)
+    }
+
+    if (path === '/inventory/movements' && method === 'POST') {
+      const data = parseBody(req)
+      const product = await prisma.product.findUnique({ where: { id: data.productId } })
+      if (!product) return res.status(404).json({ error: 'Produto não encontrado' })
+
+      let quantityInUsageUnit = data.quantity
+      if (data.unit === product.purchaseUnit && product.purchaseUnit !== product.usageUnit) {
+        quantityInUsageUnit = data.quantity * product.quantityPerPurchaseUnit
+      }
+
+      let newStock = product.currentStock
+      let movementQuantity = data.quantity
+
+      if (data.type === 'in') {
+        newStock += quantityInUsageUnit
+      } else if (data.type === 'out') {
+        newStock -= quantityInUsageUnit
+        if (newStock < 0) {
+          return res.status(400).json({ error: `Estoque insuficiente. Disponível: ${product.currentStock} ${product.usageUnit}` })
+        }
+      } else if (data.type === 'adjustment') {
+        movementQuantity = data.quantity - product.currentStock
+        newStock = data.quantity
+      }
+
+      const [movement] = await prisma.$transaction([
+        prisma.stockMovement.create({
+          data: {
+            productId: data.productId,
+            type: data.type,
+            quantity: data.type === 'adjustment' ? movementQuantity : data.quantity,
+            unit: data.unit,
+            reason: data.reason,
+            notes: data.notes,
+            costPerUnit: data.costPerUnit,
+          },
+          include: {
+            product: { select: { id: true, name: true, sku: true, usageUnit: true, purchaseUnit: true, quantityPerPurchaseUnit: true } }
+          }
+        }),
+        prisma.product.update({ where: { id: data.productId }, data: { currentStock: newStock } })
+      ])
+
+      return res.status(201).json({ ...movement, newStock, quantityInUsageUnit })
+    }
+
+    if (path === '/inventory/movements/batch' && method === 'POST') {
+      const data = parseBody(req)
+      const appointment = await prisma.appointment.findUnique({
+        where: { id: data.appointmentId },
+        select: { id: true, title: true, client: { select: { name: true } } }
+      })
+      if (!appointment) return res.status(404).json({ error: 'Agendamento não encontrado' })
+
+      const productIds = data.movements.map((m: any) => m.productId)
+      const products = await prisma.product.findMany({ where: { id: { in: productIds } } })
+      if (products.length !== productIds.length) {
+        return res.status(404).json({ error: 'Um ou mais produtos não foram encontrados' })
+      }
+
+      const productMap = new Map(products.map(p => [p.id, p]))
+      const stockErrors: string[] = []
+      const movementsData: any[] = []
+
+      for (const movement of data.movements) {
+        const product = productMap.get(movement.productId)!
+        let quantityInUsageUnit = movement.quantity
+        if (movement.unit === product.purchaseUnit && product.purchaseUnit !== product.usageUnit) {
+          quantityInUsageUnit = movement.quantity * product.quantityPerPurchaseUnit
+        }
+        const newStock = product.currentStock - quantityInUsageUnit
+        if (newStock < 0) {
+          stockErrors.push(`${product.name}: estoque insuficiente`)
+        } else {
+          movementsData.push({ productId: movement.productId, quantity: movement.quantity, quantityInUsageUnit, unit: movement.unit, newStock })
+        }
+      }
+
+      if (stockErrors.length > 0) {
+        return res.status(400).json({ error: 'Estoque insuficiente', details: stockErrors })
+      }
+
+      const transactionOps = movementsData.flatMap((m: any) => [
+        prisma.stockMovement.create({
+          data: { productId: m.productId, type: 'out', quantity: m.quantity, unit: m.unit, reason: `Uso em sessão: ${appointment.title}`, appointmentId: data.appointmentId }
+        }),
+        prisma.product.update({ where: { id: m.productId }, data: { currentStock: m.newStock } })
+      ])
+
+      await prisma.$transaction(transactionOps)
+      return res.status(201).json({ success: true, appointmentId: data.appointmentId, movementsCount: data.movements.length })
+    }
+
+    if (path === '/inventory/stats' && method === 'GET') {
+      const [totalProducts, activeProducts, totalCategories, lowStockProducts, products] = await Promise.all([
+        prisma.product.count(),
+        prisma.product.count({ where: { isActive: true } }),
+        prisma.productCategory.count(),
+        prisma.product.findMany({ where: { isActive: true }, select: { currentStock: true, minStock: true } }),
+        prisma.product.findMany({ where: { isActive: true }, select: { currentStock: true, costPrice: true, quantityPerPurchaseUnit: true } })
+      ])
+
+      const lowStockCount = lowStockProducts.filter(p => p.currentStock <= p.minStock).length
+      const totalValue = products.reduce((sum, p) => {
+        const purchaseUnitsInStock = p.currentStock / (p.quantityPerPurchaseUnit || 1)
+        return sum + (purchaseUnitsInStock * (p.costPrice || 0))
+      }, 0)
+
+      const recentMovements = await prisma.stockMovement.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        include: { product: { select: { name: true, usageUnit: true } } }
+      })
+
+      const criticalStock = await prisma.product.findMany({
+        where: { isActive: true },
+        orderBy: { currentStock: 'asc' },
+        take: 5,
+        include: { category: true }
+      })
+
+      return res.json({
+        overview: { totalProducts, activeProducts, totalCategories, lowStockCount, totalValue },
+        recentMovements,
+        criticalStock: criticalStock.map(p => ({ ...p, isLowStock: p.currentStock <= p.minStock })),
+      })
+    }
+
+    // ============ REPORTS ====================
+    if (path === '/reports' && method === 'POST') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      const data = parseBody(req)
+      const report = await prisma.report.create({
+        data: {
+          userId: decoded.userId,
+          title: data.title,
+          description: data.description,
+          type: data.type || 'bug',
+          priority: data.priority || 'medium',
+          pageUrl: data.pageUrl,
+          userAgent: data.userAgent,
+          screenshots: data.screenshots || [],
+        },
+        include: {
+          user: { select: { id: true, name: true, username: true } },
+          responses: { include: { user: { select: { id: true, name: true, isAdmin: true } } } }
+        }
+      })
+      return res.status(201).json(report)
+    }
+
+    if (path === '/reports' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      const user = await prisma.user.findUnique({ where: { id: decoded.userId }, select: { isAdmin: true } })
+      const { status, type, priority } = req.query as any
+      const where: any = {}
+
+      if (!user?.isAdmin) where.userId = decoded.userId
+      if (status) where.status = status
+      if (type) where.type = type
+      if (priority) where.priority = priority
+
+      const reports = await prisma.report.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, name: true, username: true } },
+          _count: { select: { responses: true } }
+        }
+      })
+      return res.json(reports)
+    }
+
+    if (path === '/reports/admin/stats' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      const user = await prisma.user.findUnique({ where: { id: decoded.userId }, select: { isAdmin: true } })
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Apenas admins' })
+
+      const [total, open, inProgress, resolved, closed, byType, byPriority] = await Promise.all([
+        prisma.report.count(),
+        prisma.report.count({ where: { status: 'open' } }),
+        prisma.report.count({ where: { status: 'in_progress' } }),
+        prisma.report.count({ where: { status: 'resolved' } }),
+        prisma.report.count({ where: { status: 'closed' } }),
+        prisma.report.groupBy({ by: ['type'], _count: true }),
+        prisma.report.groupBy({ by: ['priority'], _count: true }),
+      ])
+
+      return res.json({
+        total,
+        byStatus: { open, inProgress, resolved, closed },
+        byType: byType.reduce((acc, item) => ({ ...acc, [item.type]: item._count }), {}),
+        byPriority: byPriority.reduce((acc, item) => ({ ...acc, [item.priority]: item._count }), {}),
+      })
+    }
+
+    const reportMatch = path.match(/^\/reports\/([^/]+)$/)
+    if (reportMatch && reportMatch[1] !== 'admin') {
+      const id = reportMatch[1]
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      if (method === 'GET') {
+        const user = await prisma.user.findUnique({ where: { id: decoded.userId }, select: { isAdmin: true } })
+        const report = await prisma.report.findUnique({
+          where: { id },
+          include: {
+            user: { select: { id: true, name: true, username: true, email: true } },
+            responses: { orderBy: { createdAt: 'asc' }, include: { user: { select: { id: true, name: true, isAdmin: true } } } }
+          }
+        })
+        if (!report) return res.status(404).json({ error: 'Report não encontrado' })
+        if (!user?.isAdmin && report.userId !== decoded.userId) {
+          return res.status(403).json({ error: 'Sem permissão' })
+        }
+        return res.json(report)
+      }
+
+      if (method === 'PATCH') {
+        const user = await prisma.user.findUnique({ where: { id: decoded.userId }, select: { isAdmin: true } })
+        if (!user?.isAdmin) return res.status(403).json({ error: 'Apenas admins' })
+
+        const data = parseBody(req)
+        const report = await prisma.report.update({
+          where: { id },
+          data: { status: data.status, priority: data.priority },
+          include: {
+            user: { select: { id: true, name: true, username: true } },
+            responses: { include: { user: { select: { id: true, name: true, isAdmin: true } } } }
+          }
+        })
+        return res.json(report)
+      }
+    }
+
+    const reportResponseMatch = path.match(/^\/reports\/([^/]+)\/responses$/)
+    if (reportResponseMatch && method === 'POST') {
+      const reportId = reportResponseMatch[1]
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      const user = await prisma.user.findUnique({ where: { id: decoded.userId }, select: { isAdmin: true } })
+      const report = await prisma.report.findUnique({ where: { id: reportId }, select: { userId: true } })
+      if (!report) return res.status(404).json({ error: 'Report não encontrado' })
+      if (!user?.isAdmin && report.userId !== decoded.userId) {
+        return res.status(403).json({ error: 'Sem permissão' })
+      }
+
+      const data = parseBody(req)
+      const response = await prisma.reportResponse.create({
+        data: {
+          message: data.message,
+          reportId,
+          userId: decoded.userId,
+          isAdmin: user?.isAdmin || false,
+        },
+        include: { user: { select: { id: true, name: true, isAdmin: true } } }
+      })
+      return res.status(201).json(response)
+    }
+
+    // ============ NOTIFICATIONS ====================
+    if (path === '/notifications' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      const notifications = await prisma.notification.findMany({
+        where: { userId: decoded.userId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      })
+      return res.json(notifications)
+    }
+
+    if (path === '/notifications/unread-count' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      const count = await prisma.notification.count({
+        where: { userId: decoded.userId, read: false }
+      })
+      return res.json({ count })
+    }
+
+    if (path === '/notifications/read-all' && method === 'PATCH') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      await prisma.notification.updateMany({
+        where: { userId: decoded.userId, read: false },
+        data: { read: true }
+      })
+      return res.json({ success: true })
+    }
+
+    if (path === '/notifications/send' && method === 'POST') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      const user = await prisma.user.findUnique({ where: { id: decoded.userId }, select: { isAdmin: true } })
+      if (!user?.isAdmin) return res.status(403).json({ error: 'Apenas administradores podem enviar notificações' })
+
+      const { userId, title, message, type, reportId } = parseBody(req)
+      if (!userId || !title || !message) {
+        return res.status(400).json({ error: 'userId, title e message são obrigatórios' })
+      }
+
+      const notification = await prisma.notification.create({
+        data: { userId, title, message, type: type || 'info', reportId }
+      })
+      return res.status(201).json(notification)
+    }
+
+    const notificationMatch = path.match(/^\/notifications\/([^/]+)\/read$/)
+    if (notificationMatch && method === 'PATCH') {
+      const id = notificationMatch[1]
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      const result = await prisma.notification.updateMany({
+        where: { id, userId: decoded.userId },
+        data: { read: true }
+      })
+      if (result.count === 0) return res.status(404).json({ error: 'Notificação não encontrada' })
+      return res.json({ success: true })
+    }
+
+    const notificationDeleteMatch = path.match(/^\/notifications\/([^/]+)$/)
+    if (notificationDeleteMatch && method === 'DELETE') {
+      const id = notificationDeleteMatch[1]
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      const result = await prisma.notification.deleteMany({
+        where: { id, userId: decoded.userId }
+      })
+      if (result.count === 0) return res.status(404).json({ error: 'Notificação não encontrada' })
+      return res.json({ success: true })
+    }
+
+    // ============ TAGS (with client count) ====================
+    if (path === '/tags' && method === 'GET') {
+      const tags = await prisma.tag.findMany({
+        orderBy: { name: 'asc' },
+        include: { _count: { select: { clients: true } } }
+      })
+
+      const tagsWithCount = tags.map(tag => ({
+        id: tag.id,
+        name: tag.name,
+        color: tag.color,
+        clientCount: tag._count.clients,
+      }))
+
+      return res.json(tagsWithCount)
+    }
+
+    const tagMatch = path.match(/^\/tags\/([^/]+)$/)
+    if (tagMatch) {
+      const id = tagMatch[1]
+
+      if (method === 'PUT') {
+        const { name, color } = parseBody(req)
+        const tag = await prisma.tag.update({ where: { id }, data: { name, color } })
+        return res.json(tag)
+      }
+
+      if (method === 'DELETE') {
+        await prisma.tag.delete({ where: { id } })
+        return res.status(204).end()
+      }
+    }
+
     // ============ HEALTH ============
     if (path === '/health' || path === '/') {
       return res.json({ status: 'ok', timestamp: new Date().toISOString(), debugPath: path, originalUrl: url })
