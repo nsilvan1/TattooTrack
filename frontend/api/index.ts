@@ -55,7 +55,7 @@ async function createGoogleCalendarEvent(accessToken: string, appointment: any, 
     requestBody: event,
   })
 
-  return response.data.id
+  return response.data.id || null
 }
 
 // Helper para atualizar evento no Google Calendar
