@@ -17,7 +17,7 @@ import {
   BarChart3,
   ArrowLeft,
 } from 'lucide-react'
-import { Card, CardContent, Button, Input, Modal } from '../components/ui'
+import { Card, CardContent, Button, Modal } from '../components/ui'
 import { reportsApi, notificationsApi } from '../services/api'
 import type { Report, ReportStatus, ReportType, ReportPriority } from '../types'
 

@@ -18,7 +18,6 @@ import {
   MessageCircle,
   Clock,
   Palette,
-  DollarSign,
   CheckCircle2,
   XCircle,
   ClockIcon,

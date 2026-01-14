@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, Button, Input, Modal } from '../components/ui'
 import {
   Settings as SettingsIcon,
@@ -11,12 +11,8 @@ import {
   Loader2,
   ExternalLink,
   RefreshCw,
-  User,
   Lock,
   LogOut,
-  Users,
-  Palette,
-  Bell,
   Shield,
   Save,
   Edit,

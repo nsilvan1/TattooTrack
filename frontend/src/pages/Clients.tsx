@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { Search, Plus, Users, Phone, Instagram, LayoutGrid, List, Mail, MapPin, X, Calendar, Sparkles, MessageCircle, Clock, TrendingUp, Palette, CheckCircle2 } from 'lucide-react'
-import { Button, Input, Card, CardContent, EmptyState, Avatar, Tag } from '../components/ui'
+import { Button, Input, Card, CardContent, EmptyState, Avatar } from '../components/ui'
 import { clientsApi, tagsApi } from '../services/api'
 import type { ClientFilters, Tag as TagType } from '../types'
 

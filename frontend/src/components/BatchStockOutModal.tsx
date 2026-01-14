@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Package,
-  Plus,
   Search,
-  X,
   AlertTriangle,
   Check,
   Trash2,
 } from 'lucide-react'
-import { Modal, Button, Input } from './ui'
+import { Modal, Button } from './ui'
 import { productsApi, stockMovementsApi } from '../services/api'
 import type { Appointment, Product, BatchStockMovementData } from '../types'
 

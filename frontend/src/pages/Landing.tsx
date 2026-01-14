@@ -7,7 +7,6 @@ import {
   DollarSign,
   ArrowRight,
   Check,
-  Tag,
   Clock,
   Shield,
   BarChart3,

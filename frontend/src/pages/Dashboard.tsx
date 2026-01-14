@@ -8,16 +8,12 @@ import {
   TrendingDown,
   Edit,
   Phone,
-  ExternalLink,
   Save,
-  Mail,
-  Instagram,
   DollarSign,
   Clock,
   Calendar,
   ArrowRight,
   Wallet,
-  AlertCircle,
 } from 'lucide-react'
 import { Card, CardContent, Button, Input, Modal } from '../components/ui'
 import { clientsApi, tagsApi, appointmentsApi, financesApi, transactionsApi } from '../services/api'
@@ -64,7 +60,7 @@ export default function Dashboard() {
 
   const { data: recentTransactions = [] } = useQuery({
     queryKey: ['transactions-recent'],
-    queryFn: () => transactionsApi.list({ limit: 5 }),
+    queryFn: () => transactionsApi.list(),
   })
 
   const updateMutation = useMutation({

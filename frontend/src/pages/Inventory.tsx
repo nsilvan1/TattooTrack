@@ -5,8 +5,6 @@ import {
   Plus,
   Search,
   AlertTriangle,
-  TrendingUp,
-  TrendingDown,
   Box,
   Tag,
   Layers,
@@ -18,9 +16,6 @@ import {
   RotateCcw,
   LayoutGrid,
   List,
-  Filter,
-  X,
-  ChevronRight,
   History,
 } from 'lucide-react'
 import { Button, Card, CardContent, Input, Modal, EmptyState } from '../components/ui'
@@ -108,7 +103,7 @@ export default function Inventory() {
     queryFn: inventoryApi.getStats,
   })
 
-  const { data: products = [], isLoading: loadingProducts } = useQuery({
+  const { data: products = [] } = useQuery({
     queryKey: ['products', searchTerm, selectedCategoryFilter, showLowStockOnly],
     queryFn: () => productsApi.list({
       search: searchTerm || undefined,
