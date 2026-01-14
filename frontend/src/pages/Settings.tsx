@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, Button, Input, Modal } from '../components/ui'
 import {
   Settings as SettingsIcon,
@@ -22,7 +22,6 @@ import api from '../services/api'
 import { clientsApi } from '../services/api'
 
 export default function Settings() {
-  const queryClient = useQueryClient()
   const { user, updateUser, logout } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [isConnecting, setIsConnecting] = useState(false)

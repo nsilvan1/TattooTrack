@@ -8,6 +8,7 @@ interface User {
   name: string
   picture?: string
   calendarConnected: boolean
+  isAdmin?: boolean
 }
 
 interface LoginData {

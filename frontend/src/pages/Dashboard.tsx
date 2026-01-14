@@ -48,9 +48,9 @@ export default function Dashboard() {
     queryFn: tagsApi.list,
   })
 
-  const { data: appointments = [] } = useQuery({
+  const { data: appointments = [] } = useQuery<Appointment[]>({
     queryKey: ['appointments'],
-    queryFn: appointmentsApi.list,
+    queryFn: () => appointmentsApi.list(),
   })
 
   const { data: financeSummary } = useQuery({
