@@ -359,20 +359,20 @@ export default function Inventory() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-text-primary">Estoque</h1>
-          <p className="text-sm text-text-secondary">Gerencie seus produtos e materiais</p>
+          <h1 className="text-lg sm:text-xl font-bold text-text-primary">Estoque</h1>
+          <p className="text-xs sm:text-sm text-text-secondary">Gerencie seus produtos e materiais</p>
         </div>
         <div className="flex gap-2">
           {activeTab === 'categories' && (
-            <Button size="sm" onClick={() => openCategoryModal()}>
+            <Button size="sm" onClick={() => openCategoryModal()} className="w-full sm:w-auto">
               <Plus className="w-4 h-4" />
               Nova Categoria
             </Button>
           )}
           {activeTab === 'products' && (
-            <Button size="sm" onClick={() => openProductModal()}>
+            <Button size="sm" onClick={() => openProductModal()} className="w-full sm:w-auto">
               <Plus className="w-4 h-4" />
               Novo Produto
             </Button>

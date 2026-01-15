@@ -18,8 +18,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           id={id}
           className={`
-            w-full px-3 py-2 glass rounded-xl
-            text-text-primary placeholder:text-text-secondary/50
+            w-full px-3 py-2.5 sm:py-2 glass rounded-xl
+            text-base sm:text-sm text-text-primary placeholder:text-text-secondary/50
             focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white/10
             transition-all duration-300
             disabled:opacity-50 disabled:cursor-not-allowed

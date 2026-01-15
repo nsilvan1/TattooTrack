@@ -132,12 +132,12 @@ export default function Tags() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-text-primary">Tags</h1>
-          <p className="text-sm text-text-secondary">Organize seus clientes com tags</p>
+          <h1 className="text-lg sm:text-xl font-bold text-text-primary">Tags</h1>
+          <p className="text-xs sm:text-sm text-text-secondary">Organize seus clientes com tags</p>
         </div>
-        <Button size="sm" onClick={() => handleOpenModal()}>
+        <Button size="sm" onClick={() => handleOpenModal()} className="w-full sm:w-auto">
           <Plus className="w-4 h-4" />
           Nova Tag
         </Button>

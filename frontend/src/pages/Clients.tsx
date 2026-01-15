@@ -219,13 +219,13 @@ export default function Clients() {
   return (
     <div className="space-y-4">
       {/* Header compacto */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-text-primary">Clientes</h1>
-          <p className="text-sm text-text-secondary">Gerencie sua base de clientes</p>
+          <h1 className="text-lg sm:text-xl font-bold text-text-primary">Clientes</h1>
+          <p className="text-xs sm:text-sm text-text-secondary">Gerencie sua base de clientes</p>
         </div>
         <Link to="/app/clients/new">
-          <Button size="sm">
+          <Button size="sm" className="w-full sm:w-auto">
             <Plus className="w-4 h-4" />
             Novo Cliente
           </Button>

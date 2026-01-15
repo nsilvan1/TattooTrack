@@ -251,19 +251,20 @@ export default function Finances() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Financeiro</h1>
-          <p className="text-text-secondary text-sm">Controle de receitas e despesas</p>
+          <h1 className="text-lg sm:text-2xl font-bold text-text-primary">Financeiro</h1>
+          <p className="text-text-secondary text-xs sm:text-sm">Controle de receitas e despesas</p>
         </div>
         <div className="flex gap-2">
           <Button
             size="sm"
             onClick={() => openNewTransaction('income')}
-            className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30"
+            className="flex-1 sm:flex-none bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30"
           >
             <ArrowUpCircle className="w-4 h-4 mr-1.5" />
-            Receita
+            <span className="hidden sm:inline">Receita</span>
+            <span className="sm:hidden">+</span>
           </Button>
           <Button
             size="sm"
@@ -271,7 +272,8 @@ export default function Finances() {
             className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
           >
             <ArrowDownCircle className="w-4 h-4 mr-1.5" />
-            Despesa
+            <span className="hidden sm:inline">Despesa</span>
+            <span className="sm:hidden">-</span>
           </Button>
         </div>
       </div>

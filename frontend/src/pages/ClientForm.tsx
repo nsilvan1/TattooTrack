@@ -143,8 +143,8 @@ export default function ClientForm() {
   const clientTags = client?.tags.map((t) => t.tagId) || []
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div className="flex items-center gap-4">
+    <div className="space-y-4 sm:space-y-6 max-w-3xl">
+      <div className="flex items-center gap-3 sm:gap-4">
         <button
           onClick={() => navigate(-1)}
           className="p-2 hover:bg-white/5 rounded-lg transition-colors"
@@ -152,10 +152,10 @@ export default function ClientForm() {
           <ArrowLeft className="w-5 h-5 text-text-secondary" />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">
+          <h1 className="text-lg sm:text-2xl font-bold text-text-primary">
             {isEditing ? 'Editar Cliente' : 'Novo Cliente'}
           </h1>
-          <p className="text-text-secondary mt-1">
+          <p className="text-text-secondary text-xs sm:text-base mt-0.5 sm:mt-1">
             {isEditing ? 'Atualize os dados do cliente' : 'Cadastre um novo cliente'}
           </p>
         </div>
@@ -163,10 +163,10 @@ export default function ClientForm() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <Card>
-          <div className="px-6 py-4 border-b border-white/10">
-            <h2 className="font-semibold text-text-primary">Informações Básicas</h2>
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-white/10">
+            <h2 className="font-semibold text-text-primary text-sm sm:text-base">Informações Básicas</h2>
           </div>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 p-4 sm:p-6">
             <Input
               label="Nome *"
               placeholder="Nome completo"

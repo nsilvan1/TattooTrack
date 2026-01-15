@@ -166,12 +166,12 @@ export default function Dashboard() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
-          <p className="text-text-secondary text-sm">Visão geral do seu negócio</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-text-primary">Dashboard</h1>
+          <p className="text-text-secondary text-xs sm:text-sm">Visão geral do seu negócio</p>
         </div>
-        <p className="text-sm text-text-secondary">
+        <p className="text-xs sm:text-sm text-text-secondary">
           {now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
       </div>
@@ -180,22 +180,22 @@ export default function Dashboard() {
       {todayAppointments.length > 0 && (
         <Card className="bg-violet-500/10 border-violet-500/30">
           <CardContent className="py-3 px-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-violet-500/20">
+                <div className="p-2 rounded-lg bg-violet-500/20 shrink-0">
                   <Clock className="w-4 h-4 text-violet-400" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-text-primary">
                     {todayAppointments.length} agendamento{todayAppointments.length > 1 ? 's' : ''} hoje
                   </p>
-                  <p className="text-xs text-text-secondary">
+                  <p className="text-xs text-text-secondary truncate">
                     {todayAppointments.map((a: Appointment) => `${a.startTime} - ${a.client.name}`).join(' • ')}
                   </p>
                 </div>
               </div>
-              <Link to="/app/appointments">
-                <Button size="sm" variant="ghost" className="text-violet-400">
+              <Link to="/app/appointments" className="shrink-0">
+                <Button size="sm" variant="ghost" className="text-violet-400 w-full sm:w-auto">
                   Ver agenda <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
               </Link>

@@ -221,11 +221,9 @@ export default function Settings() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-text-primary">Configurações</h1>
-          <p className="text-sm text-text-secondary">Gerencie sua conta e preferências</p>
-        </div>
+      <div>
+        <h1 className="text-lg sm:text-xl font-bold text-text-primary">Configurações</h1>
+        <p className="text-xs sm:text-sm text-text-secondary">Gerencie sua conta e preferências</p>
       </div>
 
       {/* Notification */}

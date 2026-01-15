@@ -115,35 +115,36 @@ export default function ClientDetail() {
   const availableTags = tags?.filter((t: TagType) => !clientTagIds.includes(t.id)) || []
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           <button
-            onClick={() => navigate('/clients')}
+            onClick={() => navigate('/app/clients')}
             className="p-2 hover:bg-white/5 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-text-secondary" />
           </button>
-          <div className="flex items-center gap-4">
-            <Avatar name={client.name} size="xl" />
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Avatar name={client.name} size="xl" className="hidden sm:flex" />
+            <Avatar name={client.name} size="lg" className="sm:hidden" />
             <div>
-              <h1 className="text-2xl font-bold text-text-primary">{client.name}</h1>
-              <p className="text-text-secondary">
+              <h1 className="text-lg sm:text-2xl font-bold text-text-primary">{client.name}</h1>
+              <p className="text-xs sm:text-base text-text-secondary">
                 Cliente desde {formatDate(client.createdAt)}
               </p>
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Link to={`/clients/${id}/edit`}>
-            <Button variant="secondary">
+        <div className="flex gap-2 ml-11 sm:ml-0">
+          <Link to={`/app/clients/${id}/edit`}>
+            <Button variant="secondary" size="sm" className="sm:size-md">
               <Edit className="w-4 h-4" />
-              Editar
+              <span className="hidden sm:inline">Editar</span>
             </Button>
           </Link>
-          <Button variant="danger" onClick={() => setShowDeleteModal(true)}>
+          <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)} className="sm:size-md">
             <Trash2 className="w-4 h-4" />
-            Excluir
+            <span className="hidden sm:inline">Excluir</span>
           </Button>
         </div>
       </div>

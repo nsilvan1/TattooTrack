@@ -316,12 +316,12 @@ export default function Appointments() {
   return (
     <div className="space-y-4">
       {/* Header compacto */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-text-primary">Agendamentos</h1>
-          <p className="text-sm text-text-secondary">Gerencie sua agenda de sessões</p>
+          <h1 className="text-lg sm:text-xl font-bold text-text-primary">Agendamentos</h1>
+          <p className="text-xs sm:text-sm text-text-secondary">Gerencie sua agenda de sessões</p>
         </div>
-        <Button size="sm" onClick={() => openNewAppointment()}>
+        <Button size="sm" onClick={() => openNewAppointment()} className="w-full sm:w-auto">
           <Plus className="w-4 h-4" />
           Novo Agendamento
         </Button>
