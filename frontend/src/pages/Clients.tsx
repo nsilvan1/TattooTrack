@@ -224,7 +224,7 @@ export default function Clients() {
           <h1 className="text-xl font-bold text-text-primary">Clientes</h1>
           <p className="text-sm text-text-secondary">Gerencie sua base de clientes</p>
         </div>
-        <Link to="/clients/new">
+        <Link to="/app/clients/new">
           <Button size="sm">
             <Plus className="w-4 h-4" />
             Novo Cliente
@@ -431,7 +431,7 @@ export default function Clients() {
             }
             action={
               !hasActiveFilters ? (
-                <Link to="/clients/new">
+                <Link to="/app/clients/new">
                   <Button size="sm">
                     <Plus className="w-4 h-4" />
                     Cadastrar Cliente

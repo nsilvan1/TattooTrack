@@ -6,13 +6,13 @@ import ReportBugModal from '../ReportBugModal'
 import NotificationBell from '../NotificationBell'
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Clientes', href: '/clients', icon: Users },
-  { name: 'Agendamentos', href: '/appointments', icon: Calendar },
-  { name: 'Financeiro', href: '/finances', icon: DollarSign },
-  { name: 'Estoque', href: '/inventory', icon: Package },
-  { name: 'Tags', href: '/tags', icon: Tag },
-  { name: 'Configurações', href: '/settings', icon: Settings },
+  { name: 'Dashboard', href: '/app', icon: LayoutDashboard },
+  { name: 'Clientes', href: '/app/clients', icon: Users },
+  { name: 'Agendamentos', href: '/app/appointments', icon: Calendar },
+  { name: 'Financeiro', href: '/app/finances', icon: DollarSign },
+  { name: 'Estoque', href: '/app/inventory', icon: Package },
+  { name: 'Tags', href: '/app/tags', icon: Tag },
+  { name: 'Configurações', href: '/app/settings', icon: Settings },
 ]
 
 export default function Sidebar() {
@@ -77,7 +77,7 @@ export default function Sidebar() {
         {/* Admin link */}
         {user?.isAdmin && (
           <NavLink
-            to="/admin/reports"
+            to="/app/admin/reports"
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 mb-2 ${
                 isActive

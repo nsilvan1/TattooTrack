@@ -104,7 +104,7 @@ export default function ClientDetail() {
     return (
       <div className="text-center py-12">
         <p className="text-text-secondary">Cliente não encontrado</p>
-        <Link to="/clients" className="text-accent hover:underline mt-2 inline-block">
+        <Link to="/app/clients" className="text-accent hover:underline mt-2 inline-block">
           Voltar para lista
         </Link>
       </div>

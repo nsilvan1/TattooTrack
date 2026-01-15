@@ -194,7 +194,7 @@ export default function Dashboard() {
                   </p>
                 </div>
               </div>
-              <Link to="/calendar">
+              <Link to="/app/appointments">
                 <Button size="sm" variant="ghost" className="text-violet-400">
                   Ver agenda <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
@@ -266,7 +266,7 @@ export default function Dashboard() {
               <Calendar className="w-4 h-4 text-violet-400" />
               <h2 className="font-medium text-text-primary text-sm">Próximos Agendamentos</h2>
             </div>
-            <Link to="/calendar" className="text-xs text-violet-400 hover:text-violet-300">
+            <Link to="/app/appointments" className="text-xs text-violet-400 hover:text-violet-300">
               Ver todos
             </Link>
           </div>
@@ -314,7 +314,7 @@ export default function Dashboard() {
               <Wallet className="w-4 h-4 text-violet-400" />
               <h2 className="font-medium text-text-primary text-sm">Financeiro ({monthName.slice(0, 3)})</h2>
             </div>
-            <Link to="/finances" className="text-xs text-violet-400 hover:text-violet-300">
+            <Link to="/app/finances" className="text-xs text-violet-400 hover:text-violet-300">
               Detalhes
             </Link>
           </div>
@@ -375,7 +375,7 @@ export default function Dashboard() {
               )}
 
               {/* Quick action */}
-              <Link to="/finances" className="block">
+              <Link to="/app/finances" className="block">
                 <Button variant="secondary" className="w-full mt-2" size="sm">
                   <DollarSign className="w-4 h-4 mr-1.5" />
                   Adicionar transação
@@ -392,7 +392,7 @@ export default function Dashboard() {
           </div>
           <CardContent className="py-3">
             <div className="space-y-2">
-              <Link to="/clients/new" className="block">
+              <Link to="/app/clients/new" className="block">
                 <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/5 transition-colors group">
                   <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
                     <Users className="w-4 h-4 text-violet-400" />
@@ -405,7 +405,7 @@ export default function Dashboard() {
                 </div>
               </Link>
 
-              <Link to="/calendar" className="block">
+              <Link to="/app/appointments" className="block">
                 <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/5 transition-colors group">
                   <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
                     <CalendarCheck className="w-4 h-4 text-blue-400" />
@@ -418,7 +418,7 @@ export default function Dashboard() {
                 </div>
               </Link>
 
-              <Link to="/finances" className="block">
+              <Link to="/app/finances" className="block">
                 <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/5 transition-colors group">
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
                     <DollarSign className="w-4 h-4 text-emerald-400" />
@@ -437,7 +437,7 @@ export default function Dashboard() {
               <div className="mt-4 pt-3 border-t border-white/10">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs text-text-secondary">Tags ativas</p>
-                  <Link to="/tags" className="text-xs text-violet-400 hover:text-violet-300">
+                  <Link to="/app/tags" className="text-xs text-violet-400 hover:text-violet-300">
                     Gerenciar
                   </Link>
                 </div>
@@ -479,7 +479,7 @@ export default function Dashboard() {
               <Users className="w-4 h-4 text-violet-400" />
               <h2 className="font-medium text-text-primary text-sm">Clientes Recentes</h2>
             </div>
-            <Link to="/clients" className="text-xs text-violet-400 hover:text-violet-300">
+            <Link to="/app/clients" className="text-xs text-violet-400 hover:text-violet-300">
               Ver todos
             </Link>
           </div>
@@ -541,7 +541,7 @@ export default function Dashboard() {
               <Wallet className="w-4 h-4 text-violet-400" />
               <h2 className="font-medium text-text-primary text-sm">Últimas Transações</h2>
             </div>
-            <Link to="/finances" className="text-xs text-violet-400 hover:text-violet-300">
+            <Link to="/app/finances" className="text-xs text-violet-400 hover:text-violet-300">
               Ver todas
             </Link>
           </div>

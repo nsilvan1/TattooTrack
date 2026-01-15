@@ -19,7 +19,7 @@ export default function AuthCallback() {
       localStorage.setItem('token', token)
       // Pequeno delay para o estado atualizar
       setTimeout(() => {
-        window.location.href = '/'
+        window.location.href = '/app'
       }, 500)
     } else {
       navigate('/login?error=no_token')
