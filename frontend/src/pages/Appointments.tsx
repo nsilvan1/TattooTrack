@@ -408,12 +408,12 @@ export default function Appointments() {
             <div className="h-6 w-px bg-white/10 hidden sm:block" />
 
             {/* Filtro por status */}
-            <div className="flex items-center gap-1.5">
-              <Filter className="w-3.5 h-3.5 text-text-secondary" />
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+              <Filter className="w-3.5 h-3.5 text-text-secondary shrink-0" />
               <div className="flex gap-1">
                 <button
                   onClick={() => setStatusFilter('all')}
-                  className={`px-2 py-1 text-xs rounded-lg transition-all ${
+                  className={`px-2 py-1 text-xs rounded-lg transition-all whitespace-nowrap ${
                     statusFilter === 'all'
                       ? 'bg-violet-500/20 text-violet-400'
                       : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
@@ -425,7 +425,7 @@ export default function Appointments() {
                   <button
                     key={key}
                     onClick={() => setStatusFilter(key as AppointmentStatus)}
-                    className={`px-2 py-1 text-xs rounded-lg transition-all ${
+                    className={`px-2 py-1 text-xs rounded-lg transition-all whitespace-nowrap ${
                       statusFilter === key
                         ? 'ring-1 ring-white/20'
                         : 'opacity-60 hover:opacity-100'
@@ -435,7 +435,8 @@ export default function Appointments() {
                       color: color,
                     }}
                   >
-                    {label}
+                    <span className="hidden sm:inline">{label}</span>
+                    <span className="sm:hidden">{label.slice(0, 4)}</span>
                   </button>
                 ))}
               </div>

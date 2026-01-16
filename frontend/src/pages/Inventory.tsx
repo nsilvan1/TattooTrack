@@ -444,39 +444,39 @@ export default function Inventory() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-lg bg-white/5 w-fit">
+      <div className="flex gap-1 p-1 rounded-lg bg-white/5 w-full sm:w-fit overflow-x-auto">
         <button
           onClick={() => setActiveTab('products')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+          className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
             activeTab === 'products'
               ? 'bg-accent text-white'
               : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
           }`}
         >
-          <Package className="w-4 h-4 inline-block mr-2" />
-          Produtos
+          <Package className="w-4 h-4 inline-block sm:mr-2" />
+          <span className="hidden sm:inline">Produtos</span>
         </button>
         <button
           onClick={() => setActiveTab('categories')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+          className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
             activeTab === 'categories'
               ? 'bg-accent text-white'
               : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
           }`}
         >
-          <Tag className="w-4 h-4 inline-block mr-2" />
-          Categorias
+          <Tag className="w-4 h-4 inline-block sm:mr-2" />
+          <span className="hidden sm:inline">Categorias</span>
         </button>
         <button
           onClick={() => setActiveTab('movements')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+          className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
             activeTab === 'movements'
               ? 'bg-accent text-white'
               : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
           }`}
         >
-          <History className="w-4 h-4 inline-block mr-2" />
-          Movimentações
+          <History className="w-4 h-4 inline-block sm:mr-2" />
+          <span className="hidden sm:inline">Movimentações</span>
         </button>
       </div>
 

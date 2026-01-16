@@ -456,10 +456,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json({ data: clients, total, page: parseInt(page), totalPages: Math.ceil(total / parseInt(limit)) })
     }
 
-    if (path === '/clients' && method === 'POST') {
-      const data = parseBody(req)
-      const client = await prisma.client.create({ data })
-      return res.json(client)
+    // Client stats - MUST be before /clients/:id route
+    if (path === '/clients/stats' && method === 'GET') {
+      const now = new Date()
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
+
+      const [totalClients, newClientsThisMonth, newClientsLastMonth, activeClients] = await Promise.all([
+        prisma.client.count(),
+        prisma.client.count({ where: { createdAt: { gte: startOfMonth } } }),
+        prisma.client.count({ where: { createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
+        prisma.client.count({
+          where: {
+            appointments: {
+              some: {
+                date: { gte: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) }
+              }
+            }
+          }
+        })
+      ])
+
+      return res.json({
+        totalClients,
+        newClientsThisMonth,
+        newClientsLastMonth,
+        activeClients,
+        growthRate: newClientsLastMonth > 0
+          ? ((newClientsThisMonth - newClientsLastMonth) / newClientsLastMonth) * 100
+          : newClientsThisMonth > 0 ? 100 : 0
+      })
     }
 
     // Client by ID
@@ -486,6 +513,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await prisma.client.delete({ where: { id } })
         return res.status(204).end()
       }
+    }
+
+    if (path === '/clients' && method === 'POST') {
+      const data = parseBody(req)
+      const client = await prisma.client.create({ data })
+      return res.json(client)
     }
 
     // Client tags
