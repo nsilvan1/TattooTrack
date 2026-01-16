@@ -258,27 +258,27 @@ export default function Landing() {
   const currentModule = modules[activeModule]
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 glass border-b border-white/5">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-                <Sparkles className="w-5 h-5 text-white" />
+        <div className="max-w-6xl mx-auto px-3 sm:px-6">
+          <div className="flex items-center justify-between h-14 sm:h-16">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <span className="text-lg font-bold text-text-primary">TattooTrack</span>
+              <span className="text-base sm:text-lg font-bold text-text-primary">TattooTrack</span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Link
                 to="/login"
-                className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+                className="px-2 sm:px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
               >
                 Entrar
               </Link>
               <Link
                 to="/register"
-                className="px-5 py-2.5 text-sm rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-medium transition-all shadow-lg shadow-violet-500/20"
+                className="px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-medium transition-all shadow-lg shadow-violet-500/20 whitespace-nowrap"
               >
                 Começar grátis
               </Link>
@@ -288,15 +288,15 @@ export default function Landing() {
       </header>
 
       {/* Hero */}
-      <section className="pt-28 pb-16 px-4 sm:px-6 relative overflow-hidden">
+      <section className="pt-24 sm:pt-28 pb-12 sm:pb-16 px-4 sm:px-6 relative overflow-hidden">
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-20 left-1/4 w-96 h-96 bg-violet-500/15 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-20 right-1/4 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-20 left-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-violet-500/15 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-20 right-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-purple-500/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
         </div>
 
         <div className="relative max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass text-sm text-violet-300 mb-6">
-            <Sparkles className="w-4 h-4" />
+          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full glass text-xs sm:text-sm text-violet-300 mb-6">
+            <Sparkles className="w-4 h-4 shrink-0" />
             <span>A plataforma completa para tatuadores profissionais</span>
           </div>
 
@@ -469,18 +469,18 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="glass rounded-3xl p-8 sm:p-10 relative overflow-hidden">
+          <div className="glass rounded-3xl p-6 sm:p-8 md:p-10 relative overflow-visible">
             <div className="absolute -top-20 -right-20 w-40 h-40 bg-violet-500/20 rounded-full blur-3xl" />
             <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl" />
 
             <div className="relative">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 -translate-y-full">
-                <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 text-white text-sm font-semibold shadow-lg">
+              <div className="flex justify-center mb-6">
+                <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 text-white text-sm font-semibold shadow-lg whitespace-nowrap">
                   7 dias grátis
                 </span>
               </div>
 
-              <div className="text-center mb-8 pt-4">
+              <div className="text-center mb-8">
                 <div className="flex items-baseline justify-center gap-1 mb-2">
                   <span className="text-text-secondary text-xl">R$</span>
                   <span className="text-6xl font-bold text-text-primary">49</span>

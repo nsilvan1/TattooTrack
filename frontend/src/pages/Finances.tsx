@@ -256,68 +256,75 @@ export default function Finances() {
           <h1 className="text-lg sm:text-2xl font-bold text-text-primary">Financeiro</h1>
           <p className="text-text-secondary text-xs sm:text-sm">Controle de receitas e despesas</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           <Button
             size="sm"
             onClick={() => openNewTransaction('income')}
             className="flex-1 sm:flex-none bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30"
           >
-            <ArrowUpCircle className="w-4 h-4 mr-1.5" />
+            <ArrowUpCircle className="w-4 h-4 sm:mr-1.5" />
             <span className="hidden sm:inline">Receita</span>
-            <span className="sm:hidden">+</span>
           </Button>
           <Button
             size="sm"
             onClick={() => openNewTransaction('expense')}
-            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
+            className="flex-1 sm:flex-none bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
           >
-            <ArrowDownCircle className="w-4 h-4 mr-1.5" />
+            <ArrowDownCircle className="w-4 h-4 sm:mr-1.5" />
             <span className="hidden sm:inline">Despesa</span>
-            <span className="sm:hidden">-</span>
           </Button>
         </div>
       </div>
 
       {/* Summary Cards - Compact */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <Card className="bg-emerald-500/5 border-emerald-500/20">
-          <CardContent className="py-3 px-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-text-secondary text-xs">Receitas</p>
-                <p className="text-lg font-bold text-emerald-400">
+          <CardContent className="py-2 sm:py-3 px-2 sm:px-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <div className="min-w-0">
+                <p className="text-text-secondary text-[10px] sm:text-xs">Receitas</p>
+                <p className="text-sm font-bold text-emerald-400 truncate sm:hidden">
+                  {loadingSummary ? '...' : formatCurrencyCompact(summary?.totalIncome || 0)}
+                </p>
+                <p className="text-lg font-bold text-emerald-400 hidden sm:block">
                   {loadingSummary ? '...' : formatCurrency(summary?.totalIncome || 0)}
                 </p>
               </div>
-              <TrendingUp className="w-5 h-5 text-emerald-400/50" />
+              <TrendingUp className="w-5 h-5 text-emerald-400/50 hidden sm:block" />
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-red-500/5 border-red-500/20">
-          <CardContent className="py-3 px-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-text-secondary text-xs">Despesas</p>
-                <p className="text-lg font-bold text-red-400">
+          <CardContent className="py-2 sm:py-3 px-2 sm:px-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <div className="min-w-0">
+                <p className="text-text-secondary text-[10px] sm:text-xs">Despesas</p>
+                <p className="text-sm font-bold text-red-400 truncate sm:hidden">
+                  {loadingSummary ? '...' : formatCurrencyCompact(summary?.totalExpense || 0)}
+                </p>
+                <p className="text-lg font-bold text-red-400 hidden sm:block">
                   {loadingSummary ? '...' : formatCurrency(summary?.totalExpense || 0)}
                 </p>
               </div>
-              <TrendingDown className="w-5 h-5 text-red-400/50" />
+              <TrendingDown className="w-5 h-5 text-red-400/50 hidden sm:block" />
             </div>
           </CardContent>
         </Card>
 
         <Card className={`${(summary?.balance || 0) >= 0 ? 'bg-violet-500/5 border-violet-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
-          <CardContent className="py-3 px-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-text-secondary text-xs">Saldo</p>
-                <p className={`text-lg font-bold ${(summary?.balance || 0) >= 0 ? 'text-violet-400' : 'text-red-400'}`}>
+          <CardContent className="py-2 sm:py-3 px-2 sm:px-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <div className="min-w-0">
+                <p className="text-text-secondary text-[10px] sm:text-xs">Saldo</p>
+                <p className={`text-sm font-bold truncate sm:hidden ${(summary?.balance || 0) >= 0 ? 'text-violet-400' : 'text-red-400'}`}>
+                  {loadingSummary ? '...' : formatCurrencyCompact(summary?.balance || 0)}
+                </p>
+                <p className={`text-lg font-bold hidden sm:block ${(summary?.balance || 0) >= 0 ? 'text-violet-400' : 'text-red-400'}`}>
                   {loadingSummary ? '...' : formatCurrency(summary?.balance || 0)}
                 </p>
               </div>
-              <DollarSign className={`w-5 h-5 ${(summary?.balance || 0) >= 0 ? 'text-violet-400/50' : 'text-red-400/50'}`} />
+              <DollarSign className={`w-5 h-5 hidden sm:block ${(summary?.balance || 0) >= 0 ? 'text-violet-400/50' : 'text-red-400/50'}`} />
             </div>
           </CardContent>
         </Card>
