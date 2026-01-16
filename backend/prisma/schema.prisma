@@ -103,7 +103,7 @@ model User {
   name                String
   email               String?   // Opcional
   picture             String?
-  googleId            String?   @unique // Opcional - para integração Google
+  googleId            String?   // Opcional - para integração Google
   googleAccessToken   String?
   googleRefreshToken  String?
   googleTokenExpiry   DateTime?
