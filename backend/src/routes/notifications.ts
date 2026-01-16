@@ -1,29 +1,8 @@
 import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
-import jwt from 'jsonwebtoken'
 
 const router = Router()
 const prisma = new PrismaClient()
-
-// Middleware de autenticação
-const authMiddleware = (req: any, res: any, next: any) => {
-  const authHeader = req.headers.authorization
-  if (!authHeader) {
-    return res.status(401).json({ error: 'Token não fornecido' })
-  }
-
-  const token = authHeader.replace('Bearer ', '')
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { userId: string }
-    req.userId = decoded.userId
-    next()
-  } catch (error) {
-    return res.status(401).json({ error: 'Token inválido' })
-  }
-}
-
-// Aplicar middleware em todas as rotas
-router.use(authMiddleware)
 
 // GET /notifications - Listar notificações do usuário
 router.get('/', async (req: any, res) => {

@@ -9,6 +9,7 @@ datasource db {
 
 model Client {
   id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String      @db.ObjectId // Usuário dono do cliente
   name         String
   phone        String
   email        String?
@@ -32,9 +33,12 @@ model Client {
 
 model Tag {
   id      String      @id @default(auto()) @map("_id") @db.ObjectId
-  name    String      @unique
+  userId  String      @db.ObjectId // Usuário dono da tag
+  name    String
   color   String
   clients ClientTag[]
+
+  @@unique([userId, name]) // Nome único por usuário
 }
 
 model ClientTag {
@@ -77,6 +81,7 @@ model Reference {
 
 model Appointment {
   id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String    @db.ObjectId // Usuário dono do agendamento
   client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   clientId        String    @db.ObjectId
   title           String
@@ -120,6 +125,7 @@ model User {
 
 model Category {
   id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String        @db.ObjectId // Usuário dono da categoria
   name         String
   type         String        // income | expense
   color        String
@@ -129,11 +135,12 @@ model Category {
   updatedAt    DateTime      @updatedAt
   transactions Transaction[]
 
-  @@unique([name, type])
+  @@unique([userId, name, type]) // Nome único por usuário e tipo
 }
 
 model Transaction {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId // Usuário dono da transação
   type          String    // income | expense
   amount        Float
   description   String
@@ -151,19 +158,23 @@ model Transaction {
 
 model ProductCategory {
   id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  name      String    @unique
+  userId    String    @db.ObjectId // Usuário dono da categoria de produto
+  name      String
   color     String
   icon      String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   products  Product[]
+
+  @@unique([userId, name]) // Nome único por usuário
 }
 
 model Product {
   id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String            @db.ObjectId // Usuário dono do produto
   name            String
   description     String?
-  sku             String?           @unique // Código do produto
+  sku             String?           // Código do produto
   category        ProductCategory   @relation(fields: [categoryId], references: [id])
   categoryId      String            @db.ObjectId
   brand           String?
@@ -184,10 +195,13 @@ model Product {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   movements       StockMovement[]
+
+  @@unique([userId, sku]) // SKU único por usuário
 }
 
 model StockMovement {
   id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String       @db.ObjectId // Usuário dono da movimentação
   product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId     String       @db.ObjectId
   type          String       // in | out | adjustment

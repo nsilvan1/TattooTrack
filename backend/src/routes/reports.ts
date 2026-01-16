@@ -1,36 +1,12 @@
-import { Router, Request, Response, NextFunction } from 'express'
+import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
-import jwt from 'jsonwebtoken'
 
 const router = Router()
 const prisma = new PrismaClient()
-const JWT_SECRET = process.env.JWT_SECRET || 'tattootrack_secret_key'
-
-// Middleware de autenticação
-const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token não fornecido' })
-  }
-
-  const token = authHeader.split(' ')[1]
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any
-    ;(req as any).userId = decoded.userId
-    next()
-  } catch (error) {
-    return res.status(401).json({ error: 'Token inválido' })
-  }
-}
-
-// Aplicar middleware em todas as rotas
-router.use(authMiddleware)
 
 // Configurar multer para upload de screenshots
 const storage = multer.diskStorage({

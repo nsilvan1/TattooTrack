@@ -56,6 +56,7 @@ const batchStockMovementSchema = z.object({
 router.get('/categories', async (req, res) => {
   try {
     const categories = await prisma.productCategory.findMany({
+      where: { userId: req.userId },
       orderBy: { name: 'asc' },
       include: {
         _count: {
@@ -87,7 +88,10 @@ router.post('/categories', async (req, res) => {
     const data = productCategorySchema.parse(req.body)
 
     const category = await prisma.productCategory.create({
-      data,
+      data: {
+        ...data,
+        userId: req.userId!,
+      },
     })
 
     res.status(201).json(category)
@@ -105,6 +109,14 @@ router.put('/categories/:id', async (req, res) => {
   try {
     const { id } = req.params
     const data = productCategorySchema.parse(req.body)
+
+    // Verify ownership
+    const existing = await prisma.productCategory.findFirst({
+      where: { id, userId: req.userId }
+    })
+    if (!existing) {
+      return res.status(404).json({ error: 'Categoria não encontrada' })
+    }
 
     const category = await prisma.productCategory.update({
       where: { id },
@@ -126,9 +138,17 @@ router.delete('/categories/:id', async (req, res) => {
   try {
     const { id } = req.params
 
+    // Verify ownership
+    const existing = await prisma.productCategory.findFirst({
+      where: { id, userId: req.userId }
+    })
+    if (!existing) {
+      return res.status(404).json({ error: 'Categoria não encontrada' })
+    }
+
     // Check if category has products
     const productsCount = await prisma.product.count({
-      where: { categoryId: id }
+      where: { categoryId: id, userId: req.userId }
     })
 
     if (productsCount > 0) {
@@ -155,7 +175,9 @@ router.get('/products', async (req, res) => {
   try {
     const { search, categoryId, lowStock, isActive } = req.query
 
-    const where: any = {}
+    const where: any = {
+      userId: req.userId,
+    }
 
     if (search) {
       where.OR = [
@@ -204,8 +226,8 @@ router.get('/products/:id', async (req, res) => {
   try {
     const { id } = req.params
 
-    const product = await prisma.product.findUnique({
-      where: { id },
+    const product = await prisma.product.findFirst({
+      where: { id, userId: req.userId },
       include: {
         category: true,
         movements: {
@@ -234,8 +256,19 @@ router.post('/products', async (req, res) => {
   try {
     const data = productSchema.parse(req.body)
 
+    // Verify category belongs to user
+    const category = await prisma.productCategory.findFirst({
+      where: { id: data.categoryId, userId: req.userId }
+    })
+    if (!category) {
+      return res.status(400).json({ error: 'Categoria não encontrada' })
+    }
+
     const product = await prisma.product.create({
-      data,
+      data: {
+        ...data,
+        userId: req.userId!,
+      },
       include: {
         category: true,
       }
@@ -251,6 +284,7 @@ router.post('/products', async (req, res) => {
           unit: data.usageUnit,
           reason: 'Estoque inicial',
           costPerUnit: data.costPrice,
+          userId: req.userId!,
         }
       })
     }
@@ -270,6 +304,24 @@ router.put('/products/:id', async (req, res) => {
   try {
     const { id } = req.params
     const data = productSchema.partial().parse(req.body)
+
+    // Verify ownership
+    const existing = await prisma.product.findFirst({
+      where: { id, userId: req.userId }
+    })
+    if (!existing) {
+      return res.status(404).json({ error: 'Produto não encontrado' })
+    }
+
+    // If changing category, verify new category belongs to user
+    if (data.categoryId) {
+      const category = await prisma.productCategory.findFirst({
+        where: { id: data.categoryId, userId: req.userId }
+      })
+      if (!category) {
+        return res.status(400).json({ error: 'Categoria não encontrada' })
+      }
+    }
 
     const product = await prisma.product.update({
       where: { id },
@@ -294,6 +346,14 @@ router.delete('/products/:id', async (req, res) => {
   try {
     const { id } = req.params
 
+    // Verify ownership
+    const existing = await prisma.product.findFirst({
+      where: { id, userId: req.userId }
+    })
+    if (!existing) {
+      return res.status(404).json({ error: 'Produto não encontrado' })
+    }
+
     await prisma.product.delete({
       where: { id },
     })
@@ -312,9 +372,9 @@ router.post('/movements', async (req, res) => {
   try {
     const data = stockMovementSchema.parse(req.body)
 
-    // Get current product
-    const product = await prisma.product.findUnique({
-      where: { id: data.productId }
+    // Get current product (verify ownership)
+    const product = await prisma.product.findFirst({
+      where: { id: data.productId, userId: req.userId }
     })
 
     if (!product) {
@@ -359,6 +419,7 @@ router.post('/movements', async (req, res) => {
           reason: data.reason,
           notes: data.notes,
           costPerUnit: data.costPerUnit,
+          userId: req.userId!,
         },
         include: {
           product: {
@@ -398,7 +459,9 @@ router.get('/movements', async (req, res) => {
   try {
     const { productId, type, startDate, endDate, appointmentId, limit = '50' } = req.query
 
-    const where: any = {}
+    const where: any = {
+      userId: req.userId,
+    }
 
     if (productId) {
       where.productId = productId as string
@@ -464,9 +527,9 @@ router.post('/movements/batch', async (req, res) => {
   try {
     const data = batchStockMovementSchema.parse(req.body)
 
-    // Verify appointment exists
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: data.appointmentId },
+    // Verify appointment exists and belongs to user
+    const appointment = await prisma.appointment.findFirst({
+      where: { id: data.appointmentId, userId: req.userId },
       select: { id: true, title: true, client: { select: { name: true } } }
     })
 
@@ -474,10 +537,10 @@ router.post('/movements/batch', async (req, res) => {
       return res.status(404).json({ error: 'Agendamento não encontrado' })
     }
 
-    // Get all products involved
+    // Get all products involved (only user's products)
     const productIds = data.movements.map(m => m.productId)
     const products = await prisma.product.findMany({
-      where: { id: { in: productIds } }
+      where: { id: { in: productIds }, userId: req.userId }
     })
 
     if (products.length !== productIds.length) {
@@ -540,6 +603,7 @@ router.post('/movements/batch', async (req, res) => {
           unit: m.unit,
           reason: `Uso em sessão: ${appointment.title}`,
           appointmentId: data.appointmentId,
+          userId: req.userId!,
         },
         include: {
           product: {
@@ -604,15 +668,15 @@ router.get('/stats', async (req, res) => {
       lowStockProducts,
       products
     ] = await Promise.all([
-      prisma.product.count(),
-      prisma.product.count({ where: { isActive: true } }),
-      prisma.productCategory.count(),
+      prisma.product.count({ where: { userId: req.userId } }),
+      prisma.product.count({ where: { isActive: true, userId: req.userId } }),
+      prisma.productCategory.count({ where: { userId: req.userId } }),
       prisma.product.findMany({
-        where: { isActive: true },
+        where: { isActive: true, userId: req.userId },
         select: { currentStock: true, minStock: true }
       }),
       prisma.product.findMany({
-        where: { isActive: true },
+        where: { isActive: true, userId: req.userId },
         select: { currentStock: true, costPrice: true, quantityPerPurchaseUnit: true }
       })
     ])
@@ -628,6 +692,7 @@ router.get('/stats', async (req, res) => {
 
     // Get recent movements
     const recentMovements = await prisma.stockMovement.findMany({
+      where: { userId: req.userId },
       orderBy: { createdAt: 'desc' },
       take: 10,
       include: {
@@ -644,7 +709,7 @@ router.get('/stats', async (req, res) => {
 
     // Get products with lowest stock (as percentage of minStock)
     const criticalStock = await prisma.product.findMany({
-      where: { isActive: true },
+      where: { isActive: true, userId: req.userId },
       orderBy: { currentStock: 'asc' },
       take: 5,
       include: {

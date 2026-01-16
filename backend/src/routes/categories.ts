@@ -39,7 +39,9 @@ router.get('/', async (req, res) => {
   try {
     const { type } = req.query
 
-    const where: any = {}
+    const where: any = {
+      userId: req.userId,
+    }
     if (type) {
       where.type = type
     }
@@ -64,8 +66,11 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params
 
-    const category = await prisma.category.findUnique({
-      where: { id },
+    const category = await prisma.category.findFirst({
+      where: {
+        id,
+        userId: req.userId,
+      },
       include: {
         _count: {
           select: { transactions: true },
@@ -93,6 +98,7 @@ router.post('/', async (req, res) => {
       data: {
         ...data,
         isDefault: false,
+        userId: req.userId!,
       },
     })
 
@@ -117,12 +123,16 @@ router.post('/seed', async (req, res) => {
         where: {
           name: cat.name,
           type: cat.type,
+          userId: req.userId,
         },
       })
 
       if (!existing) {
         const newCat = await prisma.category.create({
-          data: cat,
+          data: {
+            ...cat,
+            userId: req.userId!,
+          },
         })
         categories.push(newCat)
         created++
@@ -148,6 +158,18 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params
     const data = categorySchema.partial().parse(req.body)
 
+    // Verify ownership before updating
+    const existing = await prisma.category.findFirst({
+      where: {
+        id,
+        userId: req.userId,
+      },
+    })
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Category not found' })
+    }
+
     const category = await prisma.category.update({
       where: { id },
       data,
@@ -168,9 +190,24 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params
 
+    // Verify ownership before deleting
+    const existing = await prisma.category.findFirst({
+      where: {
+        id,
+        userId: req.userId,
+      },
+    })
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Category not found' })
+    }
+
     // Check if category has transactions
     const transactionCount = await prisma.transaction.count({
-      where: { categoryId: id },
+      where: {
+        categoryId: id,
+        userId: req.userId,
+      },
     })
 
     if (transactionCount > 0) {

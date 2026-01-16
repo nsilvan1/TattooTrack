@@ -14,6 +14,7 @@ const tagSchema = z.object({
 router.get('/', async (req, res) => {
   try {
     const tags = await prisma.tag.findMany({
+      where: { userId: req.userId },
       orderBy: { name: 'asc' },
       include: {
         _count: {
@@ -43,7 +44,10 @@ router.post('/', async (req, res) => {
     const data = tagSchema.parse(req.body)
 
     const tag = await prisma.tag.create({
-      data,
+      data: {
+        ...data,
+        userId: req.userId!,
+      },
     })
 
     res.status(201).json(tag)
@@ -61,6 +65,15 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
     const data = tagSchema.parse(req.body)
+
+    // Verify ownership before updating
+    const existingTag = await prisma.tag.findFirst({
+      where: { id, userId: req.userId },
+    })
+
+    if (!existingTag) {
+      return res.status(404).json({ error: 'Tag not found' })
+    }
 
     const tag = await prisma.tag.update({
       where: { id },
@@ -81,6 +94,15 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params
+
+    // Verify ownership before deleting
+    const existingTag = await prisma.tag.findFirst({
+      where: { id, userId: req.userId },
+    })
+
+    if (!existingTag) {
+      return res.status(404).json({ error: 'Tag not found' })
+    }
 
     await prisma.tag.delete({
       where: { id },

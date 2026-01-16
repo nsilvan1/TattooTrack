@@ -58,13 +58,14 @@ const clientSchema = z.object({
 // List clients with filters and pagination
 router.get('/', async (req, res) => {
   try {
+    const userId = req.userId!
     const { search, tagIds, page = '1', limit = '10' } = req.query
 
     const pageNum = parseInt(page as string)
     const limitNum = parseInt(limit as string)
     const skip = (pageNum - 1) * limitNum
 
-    const where: any = {}
+    const where: any = { userId }
 
     if (search) {
       where.OR = [
@@ -117,6 +118,8 @@ router.get('/', async (req, res) => {
 // Get conversion stats
 router.get('/stats/conversion', async (req, res) => {
   try {
+    const userId = req.userId!
+
     const [
       totalClients,
       clientsWithTattoos,
@@ -127,25 +130,25 @@ router.get('/stats/conversion', async (req, res) => {
       completedAppointments,
       cancelledAppointments,
     ] = await Promise.all([
-      prisma.client.count(),
-      prisma.client.count({ where: { tattoos: { some: {} } } }),
-      prisma.client.count({ where: { appointments: { some: {} } } }),
-      prisma.client.count({ where: { appointments: { some: { status: 'completed' } } } }),
-      prisma.tattoo.count(),
-      prisma.appointment.count(),
-      prisma.appointment.count({ where: { status: 'completed' } }),
-      prisma.appointment.count({ where: { status: 'cancelled' } }),
+      prisma.client.count({ where: { userId } }),
+      prisma.client.count({ where: { userId, tattoos: { some: {} } } }),
+      prisma.client.count({ where: { userId, appointments: { some: {} } } }),
+      prisma.client.count({ where: { userId, appointments: { some: { status: 'completed' } } } }),
+      prisma.tattoo.count({ where: { client: { userId } } }),
+      prisma.appointment.count({ where: { userId } }),
+      prisma.appointment.count({ where: { userId, status: 'completed' } }),
+      prisma.appointment.count({ where: { userId, status: 'cancelled' } }),
     ])
 
     // Revenue from completed appointments
     const revenueResult = await prisma.appointment.aggregate({
-      where: { status: 'completed', price: { not: null } },
+      where: { userId, status: 'completed', price: { not: null } },
       _sum: { price: true },
     })
 
     // Revenue from tattoos
     const tattooRevenueResult = await prisma.tattoo.aggregate({
-      where: { price: { not: null } },
+      where: { client: { userId }, price: { not: null } },
       _sum: { price: true },
     })
 
@@ -154,7 +157,7 @@ router.get('/stats/conversion', async (req, res) => {
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
     const recentClients = await prisma.client.findMany({
-      where: { createdAt: { gte: sixMonthsAgo } },
+      where: { userId, createdAt: { gte: sixMonthsAgo } },
       select: { createdAt: true },
     })
 
@@ -201,10 +204,11 @@ router.get('/stats/conversion', async (req, res) => {
 // Get single client
 router.get('/:id', async (req, res) => {
   try {
+    const userId = req.userId!
     const { id } = req.params
 
-    const client = await prisma.client.findUnique({
-      where: { id },
+    const client = await prisma.client.findFirst({
+      where: { id, userId },
       include: {
         tags: {
           include: {
@@ -237,12 +241,14 @@ router.get('/:id', async (req, res) => {
 // Create client
 router.post('/', async (req, res) => {
   try {
+    const userId = req.userId!
     const data = clientSchema.parse(req.body)
     const { tagIds, birthDate, firstContact, lastContact, ...clientData } = data
 
     const client = await prisma.client.create({
       data: {
         ...clientData,
+        userId,
         birthDate: birthDate ? new Date(birthDate) : null,
         firstContact: firstContact ? new Date(firstContact) : null,
         lastContact: lastContact ? new Date(lastContact) : null,
@@ -276,9 +282,16 @@ router.post('/', async (req, res) => {
 // Update client
 router.put('/:id', async (req, res) => {
   try {
+    const userId = req.userId!
     const { id } = req.params
     const data = clientSchema.partial().parse(req.body)
     const { tagIds, birthDate, firstContact, lastContact, ...clientData } = data
+
+    // Verify ownership
+    const existing = await prisma.client.findFirst({ where: { id, userId } })
+    if (!existing) {
+      return res.status(404).json({ error: 'Client not found' })
+    }
 
     const updateData: any = { ...clientData }
     if (birthDate !== undefined) {
@@ -316,7 +329,14 @@ router.put('/:id', async (req, res) => {
 // Delete client
 router.delete('/:id', async (req, res) => {
   try {
+    const userId = req.userId!
     const { id } = req.params
+
+    // Verify ownership
+    const existing = await prisma.client.findFirst({ where: { id, userId } })
+    if (!existing) {
+      return res.status(404).json({ error: 'Client not found' })
+    }
 
     await prisma.client.delete({
       where: { id },
@@ -332,8 +352,15 @@ router.delete('/:id', async (req, res) => {
 // Add tag to client
 router.post('/:id/tags', async (req, res) => {
   try {
+    const userId = req.userId!
     const { id } = req.params
     const { tagId } = req.body
+
+    // Verify ownership
+    const existing = await prisma.client.findFirst({ where: { id, userId } })
+    if (!existing) {
+      return res.status(404).json({ error: 'Client not found' })
+    }
 
     await prisma.clientTag.create({
       data: {
@@ -352,7 +379,14 @@ router.post('/:id/tags', async (req, res) => {
 // Remove tag from client
 router.delete('/:id/tags/:tagId', async (req, res) => {
   try {
+    const userId = req.userId!
     const { id, tagId } = req.params
+
+    // Verify ownership
+    const existing = await prisma.client.findFirst({ where: { id, userId } })
+    if (!existing) {
+      return res.status(404).json({ error: 'Client not found' })
+    }
 
     await prisma.clientTag.delete({
       where: {
@@ -373,7 +407,14 @@ router.delete('/:id/tags/:tagId', async (req, res) => {
 // Get client tattoos
 router.get('/:id/tattoos', async (req, res) => {
   try {
+    const userId = req.userId!
     const { id } = req.params
+
+    // Verify ownership
+    const existing = await prisma.client.findFirst({ where: { id, userId } })
+    if (!existing) {
+      return res.status(404).json({ error: 'Client not found' })
+    }
 
     const tattoos = await prisma.tattoo.findMany({
       where: { clientId: id },
@@ -390,8 +431,15 @@ router.get('/:id/tattoos', async (req, res) => {
 // Create tattoo for client
 router.post('/:id/tattoos', async (req, res) => {
   try {
+    const userId = req.userId!
     const { id } = req.params
     const { description, bodyPart, date, price, notes, images } = req.body
+
+    // Verify ownership
+    const existing = await prisma.client.findFirst({ where: { id, userId } })
+    if (!existing) {
+      return res.status(404).json({ error: 'Client not found' })
+    }
 
     const tattoo = await prisma.tattoo.create({
       data: {
@@ -415,8 +463,15 @@ router.post('/:id/tattoos', async (req, res) => {
 // Upload reference for client with file
 router.post('/:id/references', upload.single('image'), async (req, res) => {
   try {
+    const userId = req.userId!
     const { id } = req.params
     const { notes } = req.body
+
+    // Verify ownership
+    const existing = await prisma.client.findFirst({ where: { id, userId } })
+    if (!existing) {
+      return res.status(404).json({ error: 'Client not found' })
+    }
 
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' })

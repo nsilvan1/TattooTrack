@@ -9,7 +9,9 @@ router.get('/summary', async (req, res) => {
   try {
     const { startDate, endDate } = req.query
 
-    const where: any = {}
+    const where: any = {
+      userId: req.userId,
+    }
 
     if (startDate && endDate) {
       where.date = {
@@ -64,7 +66,9 @@ router.get('/by-category', async (req, res) => {
   try {
     const { startDate, endDate, type } = req.query
 
-    const where: any = {}
+    const where: any = {
+      userId: req.userId,
+    }
 
     if (startDate && endDate) {
       where.date = {
@@ -132,6 +136,7 @@ router.get('/monthly', async (req, res) => {
 
     const transactions = await prisma.transaction.findMany({
       where: {
+        userId: req.userId,
         date: {
           gte: startDate,
           lte: endDate,
@@ -198,6 +203,7 @@ router.get('/daily/:year/:month', async (req, res) => {
 
     const transactions = await prisma.transaction.findMany({
       where: {
+        userId: req.userId,
         date: {
           gte: startDate,
           lte: endDate,
@@ -257,6 +263,7 @@ router.get('/comparison', async (req, res) => {
     const [currentIncome, currentExpense] = await Promise.all([
       prisma.transaction.aggregate({
         where: {
+          userId: req.userId,
           date: { gte: currentStart, lte: currentEnd },
           type: 'income',
         },
@@ -264,6 +271,7 @@ router.get('/comparison', async (req, res) => {
       }),
       prisma.transaction.aggregate({
         where: {
+          userId: req.userId,
           date: { gte: currentStart, lte: currentEnd },
           type: 'expense',
         },
@@ -275,6 +283,7 @@ router.get('/comparison', async (req, res) => {
     const [previousIncome, previousExpense] = await Promise.all([
       prisma.transaction.aggregate({
         where: {
+          userId: req.userId,
           date: { gte: previousStart, lte: previousEnd },
           type: 'income',
         },
@@ -282,6 +291,7 @@ router.get('/comparison', async (req, res) => {
       }),
       prisma.transaction.aggregate({
         where: {
+          userId: req.userId,
           date: { gte: previousStart, lte: previousEnd },
           type: 'expense',
         },

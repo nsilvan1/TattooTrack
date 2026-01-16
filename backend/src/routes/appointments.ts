@@ -27,6 +27,7 @@ function timeToMinutes(time: string): number {
 
 // Helper function to check for time conflicts
 async function checkTimeConflict(
+  userId: string,
   date: Date,
   startTime: string,
   estimatedHours: number,
@@ -38,9 +39,10 @@ async function checkTimeConflict(
   const dayEnd = new Date(date)
   dayEnd.setHours(23, 59, 59, 999)
 
-  // Get all appointments for that day (excluding cancelled ones)
+  // Get all appointments for that day (excluding cancelled ones) for this user
   const dayAppointments = await prisma.appointment.findMany({
     where: {
+      userId,
       date: {
         gte: dayStart,
         lte: dayEnd,
@@ -87,9 +89,10 @@ async function checkTimeConflict(
 // List all appointments with optional filters
 router.get('/', async (req, res) => {
   try {
+    const userId = req.userId!
     const { startDate, endDate, status, clientId } = req.query
 
-    const where: any = {}
+    const where: any = { userId }
 
     if (startDate && endDate) {
       where.date = {
@@ -142,10 +145,11 @@ router.get('/', async (req, res) => {
 // Get single appointment
 router.get('/:id', async (req, res) => {
   try {
+    const userId = req.userId!
     const { id } = req.params
 
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
+    const appointment = await prisma.appointment.findFirst({
+      where: { id, userId },
       include: {
         client: {
           select: {
@@ -173,11 +177,12 @@ router.get('/:id', async (req, res) => {
 // Create appointment
 router.post('/', async (req, res) => {
   try {
+    const userId = req.userId!
     const data = appointmentSchema.parse(req.body)
     const appointmentDate = new Date(data.date)
 
     // Check for time conflicts
-    const conflict = await checkTimeConflict(appointmentDate, data.startTime, data.estimatedHours)
+    const conflict = await checkTimeConflict(userId, appointmentDate, data.startTime, data.estimatedHours)
     if (conflict.hasConflict) {
       return res.status(409).json({
         error: 'Conflito de horário',
@@ -190,6 +195,7 @@ router.post('/', async (req, res) => {
       data: {
         ...data,
         date: appointmentDate,
+        userId,
       },
       include: {
         client: {
@@ -216,12 +222,13 @@ router.post('/', async (req, res) => {
 // Update appointment
 router.put('/:id', async (req, res) => {
   try {
+    const userId = req.userId!
     const { id } = req.params
     const data = appointmentSchema.partial().parse(req.body)
 
-    // Get current appointment to check for time conflicts
-    const currentAppointment = await prisma.appointment.findUnique({
-      where: { id },
+    // Get current appointment to check for time conflicts and ownership
+    const currentAppointment = await prisma.appointment.findFirst({
+      where: { id, userId },
     })
 
     if (!currentAppointment) {
@@ -233,7 +240,7 @@ router.put('/:id', async (req, res) => {
     const newStartTime = data.startTime || currentAppointment.startTime
     const newEstimatedHours = data.estimatedHours || currentAppointment.estimatedHours
 
-    const conflict = await checkTimeConflict(newDate, newStartTime, newEstimatedHours, id)
+    const conflict = await checkTimeConflict(userId, newDate, newStartTime, newEstimatedHours, id)
     if (conflict.hasConflict) {
       return res.status(409).json({
         error: 'Conflito de horário',
@@ -275,12 +282,19 @@ router.put('/:id', async (req, res) => {
 // Update appointment status
 router.patch('/:id/status', async (req, res) => {
   try {
+    const userId = req.userId!
     const { id } = req.params
     const { status } = req.body
 
     const validStatuses = ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled']
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' })
+    }
+
+    // Verify ownership
+    const existing = await prisma.appointment.findFirst({ where: { id, userId } })
+    if (!existing) {
+      return res.status(404).json({ error: 'Appointment not found' })
     }
 
     const appointment = await prisma.appointment.update({
@@ -308,8 +322,15 @@ router.patch('/:id/status', async (req, res) => {
 // Update deposit status
 router.patch('/:id/deposit', async (req, res) => {
   try {
+    const userId = req.userId!
     const { id } = req.params
     const { depositPaid, depositAmount } = req.body
+
+    // Verify ownership
+    const existing = await prisma.appointment.findFirst({ where: { id, userId } })
+    if (!existing) {
+      return res.status(404).json({ error: 'Appointment not found' })
+    }
 
     const updateData: any = {}
 
@@ -347,7 +368,14 @@ router.patch('/:id/deposit', async (req, res) => {
 // Delete appointment
 router.delete('/:id', async (req, res) => {
   try {
+    const userId = req.userId!
     const { id } = req.params
+
+    // Verify ownership
+    const existing = await prisma.appointment.findFirst({ where: { id, userId } })
+    if (!existing) {
+      return res.status(404).json({ error: 'Appointment not found' })
+    }
 
     await prisma.appointment.delete({
       where: { id },
@@ -363,12 +391,14 @@ router.delete('/:id', async (req, res) => {
 // Get appointments by date range (for calendar view)
 router.get('/calendar/:year/:month', async (req, res) => {
   try {
+    const userId = req.userId!
     const { year, month } = req.params
     const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
     const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59)
 
     const appointments = await prisma.appointment.findMany({
       where: {
+        userId,
         date: {
           gte: startDate,
           lte: endDate,

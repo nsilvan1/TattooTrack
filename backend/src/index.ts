@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import path from 'path'
+import { authMiddleware } from './middleware/auth'
 import clientsRouter from './routes/clients'
 import tagsRouter from './routes/tags'
 import tattoosRouter from './routes/tattoos'
@@ -29,14 +30,19 @@ app.use(express.json())
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')))
 
-// Routes
+// Rotas públicas (sem autenticação)
+app.use('/api/auth', authRouter)
+
+// Middleware de autenticação para todas as rotas protegidas
+app.use('/api', authMiddleware)
+
+// Rotas protegidas (requerem autenticação)
 app.use('/api/clients', clientsRouter)
 app.use('/api/tags', tagsRouter)
 app.use('/api/tattoos', tattoosRouter)
 app.use('/api/references', referencesRouter)
 app.use('/api/upload', uploadRouter)
 app.use('/api/appointments', appointmentsRouter)
-app.use('/api/auth', authRouter)
 app.use('/api/categories', categoriesRouter)
 app.use('/api/transactions', transactionsRouter)
 app.use('/api/finances', financesRouter)

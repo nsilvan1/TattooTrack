@@ -25,7 +25,9 @@ router.get('/', async (req, res) => {
     const limitNum = parseInt(limit as string)
     const skip = (pageNum - 1) * limitNum
 
-    const where: any = {}
+    const where: any = {
+      userId: req.userId,
+    }
 
     if (startDate && endDate) {
       where.date = {
@@ -78,8 +80,11 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params
 
-    const transaction = await prisma.transaction.findUnique({
-      where: { id },
+    const transaction = await prisma.transaction.findFirst({
+      where: {
+        id,
+        userId: req.userId,
+      },
       include: {
         category: true,
       },
@@ -101,9 +106,12 @@ router.post('/', async (req, res) => {
   try {
     const data = transactionSchema.parse(req.body)
 
-    // Verify category exists and matches type
-    const category = await prisma.category.findUnique({
-      where: { id: data.categoryId },
+    // Verify category exists, matches type, and belongs to user
+    const category = await prisma.category.findFirst({
+      where: {
+        id: data.categoryId,
+        userId: req.userId,
+      },
     })
 
     if (!category) {
@@ -120,6 +128,7 @@ router.post('/', async (req, res) => {
       data: {
         ...data,
         date: new Date(data.date),
+        userId: req.userId!,
       },
       include: {
         category: true,
@@ -142,9 +151,12 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params
     const data = transactionSchema.partial().parse(req.body)
 
-    // Check if transaction exists
-    const existing = await prisma.transaction.findUnique({
-      where: { id },
+    // Check if transaction exists and belongs to user
+    const existing = await prisma.transaction.findFirst({
+      where: {
+        id,
+        userId: req.userId,
+      },
     })
 
     if (!existing) {
@@ -158,10 +170,13 @@ router.put('/:id', async (req, res) => {
       })
     }
 
-    // If changing category, verify it exists and matches type
+    // If changing category, verify it exists, matches type, and belongs to user
     if (data.categoryId) {
-      const category = await prisma.category.findUnique({
-        where: { id: data.categoryId },
+      const category = await prisma.category.findFirst({
+        where: {
+          id: data.categoryId,
+          userId: req.userId,
+        },
       })
 
       if (!category) {
@@ -182,7 +197,10 @@ router.put('/:id', async (req, res) => {
     }
 
     const transaction = await prisma.transaction.update({
-      where: { id },
+      where: {
+        id,
+        userId: req.userId,
+      },
       data: updateData,
       include: {
         category: true,
@@ -204,9 +222,12 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params
 
-    // Check if transaction exists
-    const existing = await prisma.transaction.findUnique({
-      where: { id },
+    // Check if transaction exists and belongs to user
+    const existing = await prisma.transaction.findFirst({
+      where: {
+        id,
+        userId: req.userId,
+      },
     })
 
     if (!existing) {
@@ -221,7 +242,10 @@ router.delete('/:id', async (req, res) => {
     }
 
     await prisma.transaction.delete({
-      where: { id },
+      where: {
+        id,
+        userId: req.userId,
+      },
     })
 
     res.status(204).send()
@@ -246,10 +270,25 @@ router.post('/bulk', async (req, res) => {
     for (let i = 0; i < transactions.length; i++) {
       try {
         const data = transactionSchema.parse(transactions[i])
+
+        // Verify category belongs to user
+        const category = await prisma.category.findFirst({
+          where: {
+            id: data.categoryId,
+            userId: req.userId,
+          },
+        })
+
+        if (!category) {
+          errors.push({ index: i, error: 'Category not found or does not belong to user' })
+          continue
+        }
+
         const transaction = await prisma.transaction.create({
           data: {
             ...data,
             date: new Date(data.date),
+            userId: req.userId!,
           },
           include: {
             category: true,

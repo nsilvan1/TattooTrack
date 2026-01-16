@@ -172,36 +172,47 @@ const testAppointments = [
 async function main() {
   console.log('Seeding database...')
 
-  // Criar tags
-  const createdTags: Record<string, string> = {}
-  for (const tag of defaultTags) {
-    const created = await prisma.tag.upsert({
-      where: { name: tag.name },
-      update: {},
-      create: tag,
-    })
-    createdTags[tag.name] = created.id
-    console.log(`Created tag: ${tag.name}`)
-  }
-
   // Criar usuário de teste
   const hashedPassword = await bcrypt.hash('123456', 10)
-  await prisma.user.upsert({
+  const adminUser = await prisma.user.upsert({
     where: { username: 'admin' },
     update: {},
     create: {
       name: 'Administrador',
       username: 'admin',
       password: hashedPassword,
+      isAdmin: true,
     },
   })
   console.log('Usuário de teste criado: admin / 123456')
+
+  const userId = adminUser.id
+
+  // Criar tags
+  const createdTags: Record<string, string> = {}
+  for (const tag of defaultTags) {
+    // Verificar se já existe para este usuário
+    const existing = await prisma.tag.findFirst({
+      where: { userId, name: tag.name }
+    })
+
+    if (existing) {
+      createdTags[tag.name] = existing.id
+      console.log(`Tag already exists: ${tag.name}`)
+    } else {
+      const created = await prisma.tag.create({
+        data: { ...tag, userId },
+      })
+      createdTags[tag.name] = created.id
+      console.log(`Created tag: ${tag.name}`)
+    }
+  }
 
   // Criar clientes
   const createdClients: string[] = []
   for (const client of testClients) {
     const created = await prisma.client.create({
-      data: client,
+      data: { ...client, userId },
     })
     createdClients.push(created.id)
     console.log(`Created client: ${client.name}`)
@@ -268,6 +279,7 @@ async function main() {
 
     await prisma.appointment.create({
       data: {
+        userId,
         clientId: createdClients[i % createdClients.length],
         title: appt.title,
         description: appt.description,
