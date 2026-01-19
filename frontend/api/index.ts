@@ -415,22 +415,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ============ TAGS ============
     if (path === '/tags' && method === 'GET') {
-      const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } })
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      const tags = await prisma.tag.findMany({
+        where: { userId: decoded.userId },
+        orderBy: { name: 'asc' }
+      })
       return res.json(tags)
     }
 
     if (path === '/tags' && method === 'POST') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const { name, color } = parseBody(req)
-      const tag = await prisma.tag.create({ data: { name, color } })
+      const tag = await prisma.tag.create({ data: { name, color, userId: decoded.userId } })
       return res.json(tag)
     }
 
     // ============ CLIENTS ============
     if (path === '/clients' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const { page = '1', limit = '10', search, tagIds } = req.query as any
       const skip = (parseInt(page) - 1) * parseInt(limit)
 
-      const where: any = {}
+      const where: any = { userId: decoded.userId }
       if (search) {
         where.OR = [
           { name: { contains: search, mode: 'insensitive' } },
@@ -458,17 +470,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Client stats - MUST be before /clients/:id route
     if (path === '/clients/stats' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const now = new Date()
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
 
       const [totalClients, newClientsThisMonth, newClientsLastMonth, activeClients] = await Promise.all([
-        prisma.client.count(),
-        prisma.client.count({ where: { createdAt: { gte: startOfMonth } } }),
-        prisma.client.count({ where: { createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
+        prisma.client.count({ where: { userId: decoded.userId } }),
+        prisma.client.count({ where: { userId: decoded.userId, createdAt: { gte: startOfMonth } } }),
+        prisma.client.count({ where: { userId: decoded.userId, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
         prisma.client.count({
           where: {
+            userId: decoded.userId,
             appointments: {
               some: {
                 date: { gte: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) }
@@ -492,11 +508,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Client by ID
     const clientMatch = path.match(/^\/clients\/([^/]+)$/)
     if (clientMatch) {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const id = clientMatch[1]
 
       if (method === 'GET') {
-        const client = await prisma.client.findUnique({
-          where: { id },
+        const client = await prisma.client.findFirst({
+          where: { id, userId: decoded.userId },
           include: { tags: { include: { tag: true } }, references: true, appointments: true }
         })
         if (!client) return res.status(404).json({ error: 'Cliente não encontrado' })
@@ -504,20 +523,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (method === 'PUT') {
+        const existing = await prisma.client.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existing) return res.status(404).json({ error: 'Cliente não encontrado' })
+
         const data = parseBody(req)
         const client = await prisma.client.update({ where: { id }, data })
         return res.json(client)
       }
 
       if (method === 'DELETE') {
+        const existing = await prisma.client.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existing) return res.status(404).json({ error: 'Cliente não encontrado' })
+
         await prisma.client.delete({ where: { id } })
         return res.status(204).end()
       }
     }
 
     if (path === '/clients' && method === 'POST') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const data = parseBody(req)
-      const client = await prisma.client.create({ data })
+      const client = await prisma.client.create({ data: { ...data, userId: decoded.userId } })
       return res.json(client)
     }
 
@@ -547,8 +575,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ============ APPOINTMENTS ============
     if (path === '/appointments' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const { startDate, endDate, status, clientId } = req.query as any
-      const where: any = {}
+      const where: any = { userId: decoded.userId }
 
       if (startDate) where.date = { gte: new Date(startDate) }
       if (endDate) where.date = { ...where.date, lte: new Date(endDate) }
@@ -565,14 +596,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (path === '/appointments' && method === 'POST') {
       const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const data = parseBody(req)
 
-      // Buscar cliente para obter o nome
-      const client = await prisma.client.findUnique({ where: { id: data.clientId } })
+      // Buscar cliente para obter o nome (verificando ownership)
+      const client = await prisma.client.findFirst({ where: { id: data.clientId, userId: decoded.userId } })
       if (!client) return res.status(404).json({ error: 'Cliente não encontrado' })
 
       const appointment = await prisma.appointment.create({
-        data: { ...data, date: new Date(data.date) },
+        data: { ...data, date: new Date(data.date), userId: decoded.userId },
         include: { client: true }
       })
 
@@ -620,12 +653,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Appointments by month
     const calendarMatch = path.match(/^\/appointments\/calendar\/(\d+)\/(\d+)$/)
     if (calendarMatch && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const [, year, month] = calendarMatch
       const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
       const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59)
 
       const appointments = await prisma.appointment.findMany({
-        where: { date: { gte: startDate, lte: endDate } },
+        where: { userId: decoded.userId, date: { gte: startDate, lte: endDate } },
         orderBy: { date: 'asc' },
         include: { client: true }
       })
@@ -635,11 +671,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Appointment by ID
     const appointmentMatch = path.match(/^\/appointments\/([^/]+)$/)
     if (appointmentMatch) {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const id = appointmentMatch[1]
 
       if (method === 'GET') {
-        const appointment = await prisma.appointment.findUnique({
-          where: { id },
+        const appointment = await prisma.appointment.findFirst({
+          where: { id, userId: decoded.userId },
           include: { client: true }
         })
         if (!appointment) return res.status(404).json({ error: 'Agendamento não encontrado' })
@@ -647,14 +686,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (method === 'PUT') {
-        const decoded = verifyToken(req)
         const data = parseBody(req)
         if (data.date) data.date = new Date(data.date)
 
-        const existingAppointment = await prisma.appointment.findUnique({
-          where: { id },
+        const existingAppointment = await prisma.appointment.findFirst({
+          where: { id, userId: decoded.userId },
           include: { client: true }
         })
+        if (!existingAppointment) return res.status(404).json({ error: 'Agendamento não encontrado' })
 
         const appointment = await prisma.appointment.update({
           where: { id },
@@ -691,11 +730,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (method === 'DELETE') {
-        const decoded = verifyToken(req)
-        const existingAppointment = await prisma.appointment.findUnique({ where: { id } })
+        const existingAppointment = await prisma.appointment.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existingAppointment) return res.status(404).json({ error: 'Agendamento não encontrado' })
 
         // Deletar evento do Google Calendar se existir
-        if (decoded && existingAppointment?.googleEventId) {
+        if (existingAppointment?.googleEventId) {
           const user = await prisma.user.findUnique({
             where: { id: decoded.userId },
             select: { calendarConnected: true, googleAccessToken: true, googleRefreshToken: true, googleTokenExpiry: true }
@@ -723,13 +762,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Appointment status
     const statusMatch = path.match(/^\/appointments\/([^/]+)\/status$/)
     if (statusMatch && method === 'PATCH') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const id = statusMatch[1]
       const { status } = parseBody(req)
 
-      const oldAppointment = await prisma.appointment.findUnique({
-        where: { id },
+      const oldAppointment = await prisma.appointment.findFirst({
+        where: { id, userId: decoded.userId },
         include: { client: true, transactions: true }
       })
+      if (!oldAppointment) return res.status(404).json({ error: 'Agendamento não encontrado' })
 
       const appointment = await prisma.appointment.update({
         where: { id },
@@ -771,13 +814,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Appointment deposit
     const depositMatch = path.match(/^\/appointments\/([^/]+)\/deposit$/)
     if (depositMatch && method === 'PATCH') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const id = depositMatch[1]
       const { depositPaid, depositAmount } = parseBody(req)
 
-      const oldAppointment = await prisma.appointment.findUnique({
-        where: { id },
+      const oldAppointment = await prisma.appointment.findFirst({
+        where: { id, userId: decoded.userId },
         include: { client: true }
       })
+      if (!oldAppointment) return res.status(404).json({ error: 'Agendamento não encontrado' })
 
       const appointment = await prisma.appointment.update({
         where: { id },
@@ -815,8 +862,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ============ CATEGORIES ============
     if (path === '/categories' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const { type } = req.query as any
-      const where: any = {}
+      const where: any = { userId: decoded.userId }
       if (type) where.type = type
 
       const categories = await prisma.category.findMany({
@@ -827,14 +877,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (path === '/categories' && method === 'POST') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const { name, type, color, icon, isDefault } = parseBody(req)
       const category = await prisma.category.create({
-        data: { name, type, color, icon, isDefault: isDefault || false }
+        data: { name, type, color, icon, isDefault: isDefault || false, userId: decoded.userId }
       })
       return res.json(category)
     }
 
     if (path === '/categories/seed' && method === 'POST') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       // Seed de categorias padrao
       const defaultCategories = [
         // Receitas
@@ -855,10 +911,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const results = []
       for (const cat of defaultCategories) {
         const existing = await prisma.category.findFirst({
-          where: { name: cat.name, type: cat.type }
+          where: { name: cat.name, type: cat.type, userId: decoded.userId }
         })
         if (!existing) {
-          const created = await prisma.category.create({ data: cat })
+          const created = await prisma.category.create({ data: { ...cat, userId: decoded.userId } })
           results.push(created)
         }
       }
@@ -923,15 +979,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const categoryMatch = path.match(/^\/categories\/([^/]+)$/)
     if (categoryMatch) {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const id = categoryMatch[1]
 
       if (method === 'PUT') {
+        const existing = await prisma.category.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existing) return res.status(404).json({ error: 'Categoria não encontrada' })
+
         const data = parseBody(req)
         const category = await prisma.category.update({ where: { id }, data })
         return res.json(category)
       }
 
       if (method === 'DELETE') {
+        const existing = await prisma.category.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existing) return res.status(404).json({ error: 'Categoria não encontrada' })
+
         // Verificar se tem transacoes vinculadas
         const transactionsCount = await prisma.transaction.count({
           where: { categoryId: id }
@@ -946,8 +1011,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ============ TRANSACTIONS ============
     if (path === '/transactions' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const { startDate, endDate, type, categoryId } = req.query as any
-      const where: any = {}
+      const where: any = { userId: decoded.userId }
 
       if (startDate) where.date = { gte: new Date(startDate) }
       if (endDate) where.date = { ...where.date, lte: new Date(endDate) }
@@ -966,6 +1034,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (path === '/transactions' && method === 'POST') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const { type, amount, description, date, categoryId, appointmentId, notes } = parseBody(req)
       const transaction = await prisma.transaction.create({
         data: {
@@ -977,6 +1048,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           appointmentId,
           notes,
           isAutomatic: false,
+          userId: decoded.userId,
         },
         include: { category: true }
       })
@@ -985,11 +1057,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const transactionMatch = path.match(/^\/transactions\/([^/]+)$/)
     if (transactionMatch) {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const id = transactionMatch[1]
 
       if (method === 'GET') {
-        const transaction = await prisma.transaction.findUnique({
-          where: { id },
+        const transaction = await prisma.transaction.findFirst({
+          where: { id, userId: decoded.userId },
           include: {
             category: true,
             appointment: { include: { client: true } }
@@ -1000,6 +1075,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (method === 'PUT') {
+        const existing = await prisma.transaction.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existing) return res.status(404).json({ error: 'Transação não encontrada' })
+
         const data = parseBody(req)
         if (data.date) data.date = new Date(data.date)
         const transaction = await prisma.transaction.update({
@@ -1011,6 +1089,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (method === 'DELETE') {
+        const existing = await prisma.transaction.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existing) return res.status(404).json({ error: 'Transação não encontrada' })
+
         await prisma.transaction.delete({ where: { id } })
         return res.status(204).end()
       }
@@ -1018,8 +1099,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ============ FINANCES ============
     if (path === '/finances/summary' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const { startDate, endDate } = req.query as any
-      const where: any = {}
+      const where: any = { userId: decoded.userId }
 
       if (startDate) where.date = { gte: new Date(startDate) }
       if (endDate) where.date = { ...where.date, lte: new Date(endDate) }
@@ -1046,8 +1130,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (path === '/finances/by-category' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const { startDate, endDate, type } = req.query as any
-      const where: any = {}
+      const where: any = { userId: decoded.userId }
 
       if (startDate) where.date = { gte: new Date(startDate) }
       if (endDate) where.date = { ...where.date, lte: new Date(endDate) }
@@ -1079,7 +1166,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ============ INVENTORY - PRODUCT CATEGORIES ====================
     if (path === '/inventory/categories' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const categories = await prisma.productCategory.findMany({
+        where: { userId: decoded.userId },
         orderBy: { name: 'asc' },
         include: {
           _count: {
@@ -1102,18 +1193,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (path === '/inventory/categories' && method === 'POST') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const { name, color, icon } = parseBody(req)
       const category = await prisma.productCategory.create({
-        data: { name, color, icon }
+        data: { name, color, icon, userId: decoded.userId }
       })
       return res.status(201).json(category)
     }
 
     const inventoryCategoryMatch = path.match(/^\/inventory\/categories\/([^/]+)$/)
     if (inventoryCategoryMatch) {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const id = inventoryCategoryMatch[1]
 
       if (method === 'PUT') {
+        const existing = await prisma.productCategory.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existing) return res.status(404).json({ error: 'Categoria não encontrada' })
+
         const { name, color, icon } = parseBody(req)
         const category = await prisma.productCategory.update({
           where: { id },
@@ -1123,6 +1223,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (method === 'DELETE') {
+        const existing = await prisma.productCategory.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existing) return res.status(404).json({ error: 'Categoria não encontrada' })
+
         const productsCount = await prisma.product.count({ where: { categoryId: id } })
         if (productsCount > 0) {
           return res.status(400).json({
@@ -1136,8 +1239,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ============ INVENTORY - PRODUCTS ====================
     if (path === '/inventory/products' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const { search, categoryId, lowStock, isActive } = req.query as any
-      const where: any = {}
+      const where: any = { userId: decoded.userId }
 
       if (search) {
         where.OR = [
@@ -1168,6 +1274,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (path === '/inventory/products' && method === 'POST') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const data = parseBody(req)
       const product = await prisma.product.create({
         data: {
@@ -1185,6 +1294,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           supplier: data.supplier,
           notes: data.notes,
           isActive: data.isActive !== false,
+          userId: decoded.userId,
         },
         include: { category: true }
       })
@@ -1198,6 +1308,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             unit: data.usageUnit || 'un',
             reason: 'Estoque inicial',
             costPerUnit: data.costPrice,
+            userId: decoded.userId,
           }
         })
       }
@@ -1207,11 +1318,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const inventoryProductMatch = path.match(/^\/inventory\/products\/([^/]+)$/)
     if (inventoryProductMatch) {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const id = inventoryProductMatch[1]
 
       if (method === 'GET') {
-        const product = await prisma.product.findUnique({
-          where: { id },
+        const product = await prisma.product.findFirst({
+          where: { id, userId: decoded.userId },
           include: {
             category: true,
             movements: { orderBy: { createdAt: 'desc' }, take: 50 }
@@ -1222,6 +1336,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (method === 'PUT') {
+        const existing = await prisma.product.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existing) return res.status(404).json({ error: 'Produto não encontrado' })
+
         const data = parseBody(req)
         const product = await prisma.product.update({
           where: { id },
@@ -1232,6 +1349,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (method === 'DELETE') {
+        const existing = await prisma.product.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existing) return res.status(404).json({ error: 'Produto não encontrado' })
+
         await prisma.product.delete({ where: { id } })
         return res.status(204).end()
       }
@@ -1239,8 +1359,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ============ INVENTORY - STOCK MOVEMENTS ====================
     if (path === '/inventory/movements' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const { productId, type, startDate, endDate, appointmentId, limit = '50' } = req.query as any
-      const where: any = {}
+      const where: any = { userId: decoded.userId }
 
       if (productId) where.productId = productId
       if (type) where.type = type
@@ -1269,8 +1392,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (path === '/inventory/movements' && method === 'POST') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const data = parseBody(req)
-      const product = await prisma.product.findUnique({ where: { id: data.productId } })
+      const product = await prisma.product.findFirst({ where: { id: data.productId, userId: decoded.userId } })
       if (!product) return res.status(404).json({ error: 'Produto não encontrado' })
 
       let quantityInUsageUnit = data.quantity
@@ -1303,6 +1429,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             reason: data.reason,
             notes: data.notes,
             costPerUnit: data.costPerUnit,
+            userId: decoded.userId,
           },
           include: {
             product: { select: { id: true, name: true, sku: true, usageUnit: true, purchaseUnit: true, quantityPerPurchaseUnit: true } }
@@ -1315,15 +1442,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (path === '/inventory/movements/batch' && method === 'POST') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const data = parseBody(req)
-      const appointment = await prisma.appointment.findUnique({
-        where: { id: data.appointmentId },
+      const appointment = await prisma.appointment.findFirst({
+        where: { id: data.appointmentId, userId: decoded.userId },
         select: { id: true, title: true, client: { select: { name: true } } }
       })
       if (!appointment) return res.status(404).json({ error: 'Agendamento não encontrado' })
 
       const productIds = data.movements.map((m: any) => m.productId)
-      const products = await prisma.product.findMany({ where: { id: { in: productIds } } })
+      const products = await prisma.product.findMany({ where: { id: { in: productIds }, userId: decoded.userId } })
       if (products.length !== productIds.length) {
         return res.status(404).json({ error: 'Um ou mais produtos não foram encontrados' })
       }
@@ -1352,7 +1482,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const transactionOps = movementsData.flatMap((m: any) => [
         prisma.stockMovement.create({
-          data: { productId: m.productId, type: 'out', quantity: m.quantity, unit: m.unit, reason: `Uso em sessão: ${appointment.title}`, appointmentId: data.appointmentId }
+          data: { productId: m.productId, type: 'out', quantity: m.quantity, unit: m.unit, reason: `Uso em sessão: ${appointment.title}`, appointmentId: data.appointmentId, userId: decoded.userId }
         }),
         prisma.product.update({ where: { id: m.productId }, data: { currentStock: m.newStock } })
       ])
@@ -1362,12 +1492,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (path === '/inventory/stats' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const [totalProducts, activeProducts, totalCategories, lowStockProducts, products] = await Promise.all([
-        prisma.product.count(),
-        prisma.product.count({ where: { isActive: true } }),
-        prisma.productCategory.count(),
-        prisma.product.findMany({ where: { isActive: true }, select: { currentStock: true, minStock: true } }),
-        prisma.product.findMany({ where: { isActive: true }, select: { currentStock: true, costPrice: true, quantityPerPurchaseUnit: true } })
+        prisma.product.count({ where: { userId: decoded.userId } }),
+        prisma.product.count({ where: { userId: decoded.userId, isActive: true } }),
+        prisma.productCategory.count({ where: { userId: decoded.userId } }),
+        prisma.product.findMany({ where: { userId: decoded.userId, isActive: true }, select: { currentStock: true, minStock: true } }),
+        prisma.product.findMany({ where: { userId: decoded.userId, isActive: true }, select: { currentStock: true, costPrice: true, quantityPerPurchaseUnit: true } })
       ])
 
       const lowStockCount = lowStockProducts.filter(p => p.currentStock <= p.minStock).length
@@ -1377,13 +1510,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }, 0)
 
       const recentMovements = await prisma.stockMovement.findMany({
+        where: { userId: decoded.userId },
         orderBy: { createdAt: 'desc' },
         take: 10,
         include: { product: { select: { name: true, usageUnit: true } } }
       })
 
       const criticalStock = await prisma.product.findMany({
-        where: { isActive: true },
+        where: { userId: decoded.userId, isActive: true },
         orderBy: { currentStock: 'asc' },
         take: 5,
         include: { category: true }
@@ -1615,33 +1749,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ============ TAGS (with client count) ====================
-    if (path === '/tags' && method === 'GET') {
-      const tags = await prisma.tag.findMany({
-        orderBy: { name: 'asc' },
-        include: { _count: { select: { clients: true } } }
-      })
-
-      const tagsWithCount = tags.map(tag => ({
-        id: tag.id,
-        name: tag.name,
-        color: tag.color,
-        clientCount: tag._count.clients,
-      }))
-
-      return res.json(tagsWithCount)
-    }
+    // Note: This is handled earlier in the file at the first /tags section
 
     const tagMatch = path.match(/^\/tags\/([^/]+)$/)
     if (tagMatch) {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
       const id = tagMatch[1]
 
       if (method === 'PUT') {
+        const existing = await prisma.tag.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existing) return res.status(404).json({ error: 'Tag não encontrada' })
+
         const { name, color } = parseBody(req)
         const tag = await prisma.tag.update({ where: { id }, data: { name, color } })
         return res.json(tag)
       }
 
       if (method === 'DELETE') {
+        const existing = await prisma.tag.findFirst({ where: { id, userId: decoded.userId } })
+        if (!existing) return res.status(404).json({ error: 'Tag não encontrada' })
+
         await prisma.tag.delete({ where: { id } })
         return res.status(204).end()
       }
