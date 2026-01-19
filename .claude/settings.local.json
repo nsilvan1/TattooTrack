@@ -7,7 +7,19 @@
       "Bash(npx tailwindcss:*)",
       "Bash(cat:*)",
       "Bash(npm init:*)",
-      "Bash(npx tsc --init)"
+      "Bash(npx tsc --init)",
+      "Bash(curl:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(taskkill:*)",
+      "Bash(wmic process:*)",
+      "Bash(tasklist /FI \"IMAGENAME eq node.exe\")",
+      "Bash(powershell:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run dev:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx ts-node:*)"
     ]
   }
 }
