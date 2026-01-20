@@ -505,6 +505,88 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
     }
 
+    // Client conversion stats - MUST be before /clients/:id route
+    if (path === '/clients/stats/conversion' && method === 'GET') {
+      const decoded = verifyToken(req)
+      if (!decoded) return res.status(401).json({ error: 'Token inválido' })
+
+      const [
+        totalClients,
+        clientsWithTattoos,
+        clientsWithAppointments,
+        clientsWithCompletedAppointments,
+        totalTattoos,
+        totalAppointments,
+        completedAppointments,
+        cancelledAppointments,
+      ] = await Promise.all([
+        prisma.client.count({ where: { userId: decoded.userId } }),
+        prisma.client.count({ where: { userId: decoded.userId, tattoos: { some: {} } } }),
+        prisma.client.count({ where: { userId: decoded.userId, appointments: { some: {} } } }),
+        prisma.client.count({ where: { userId: decoded.userId, appointments: { some: { status: 'completed' } } } }),
+        prisma.tattoo.count({ where: { client: { userId: decoded.userId } } }),
+        prisma.appointment.count({ where: { userId: decoded.userId } }),
+        prisma.appointment.count({ where: { userId: decoded.userId, status: 'completed' } }),
+        prisma.appointment.count({ where: { userId: decoded.userId, status: 'cancelled' } }),
+      ])
+
+      // Revenue from completed appointments
+      const revenueResult = await prisma.appointment.aggregate({
+        where: { userId: decoded.userId, status: 'completed', price: { not: null } },
+        _sum: { price: true },
+      })
+
+      // Revenue from tattoos
+      const tattooRevenueResult = await prisma.tattoo.aggregate({
+        where: { client: { userId: decoded.userId }, price: { not: null } },
+        _sum: { price: true },
+      })
+
+      // Clients by month (last 6 months)
+      const sixMonthsAgo = new Date()
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+      const recentClients = await prisma.client.findMany({
+        where: { userId: decoded.userId, createdAt: { gte: sixMonthsAgo } },
+        select: { createdAt: true },
+      })
+
+      const clientsByMonth: Record<string, number> = {}
+      recentClients.forEach(c => {
+        const key = `${c.createdAt.getFullYear()}-${String(c.createdAt.getMonth() + 1).padStart(2, '0')}`
+        clientsByMonth[key] = (clientsByMonth[key] || 0) + 1
+      })
+
+      return res.json({
+        overview: {
+          totalClients,
+          clientsWithTattoos,
+          clientsWithAppointments,
+          clientsWithCompletedAppointments,
+          conversionRate: totalClients > 0 ? ((clientsWithTattoos / totalClients) * 100).toFixed(1) : 0,
+          appointmentConversionRate: clientsWithAppointments > 0
+            ? ((clientsWithCompletedAppointments / clientsWithAppointments) * 100).toFixed(1) : 0,
+        },
+        appointments: {
+          total: totalAppointments,
+          completed: completedAppointments,
+          cancelled: cancelledAppointments,
+          completionRate: totalAppointments > 0
+            ? ((completedAppointments / totalAppointments) * 100).toFixed(1) : 0,
+        },
+        tattoos: {
+          total: totalTattoos,
+          averagePerClient: clientsWithTattoos > 0
+            ? (totalTattoos / clientsWithTattoos).toFixed(1) : 0,
+        },
+        revenue: {
+          fromAppointments: revenueResult._sum.price || 0,
+          fromTattoos: tattooRevenueResult._sum.price || 0,
+        },
+        clientsByMonth,
+      })
+    }
+
     // Client by ID
     const clientMatch = path.match(/^\/clients\/([^/]+)$/)
     if (clientMatch) {
