@@ -609,6 +609,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!existing) return res.status(404).json({ error: 'Cliente não encontrado' })
 
         const data = parseBody(req)
+
+        // Converter campos de data de string para Date
+        if (data.birthDate) data.birthDate = new Date(data.birthDate)
+        if (data.firstContact) data.firstContact = new Date(data.firstContact)
+        if (data.lastContact) data.lastContact = new Date(data.lastContact)
+
+        // Remover campos vazios para não sobrescrever com null
+        Object.keys(data).forEach(key => {
+          if (data[key] === '' || data[key] === undefined) {
+            delete data[key]
+          }
+        })
+
         const client = await prisma.client.update({ where: { id }, data })
         return res.json(client)
       }
@@ -627,7 +640,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!decoded) return res.status(401).json({ error: 'Token inválido' })
 
       const data = parseBody(req)
-      const client = await prisma.client.create({ data: { ...data, userId: decoded.userId } })
+
+      // Converter campos de data de string para Date
+      const clientData: any = { ...data, userId: decoded.userId }
+      if (clientData.birthDate) clientData.birthDate = new Date(clientData.birthDate)
+      if (clientData.firstContact) clientData.firstContact = new Date(clientData.firstContact)
+      if (clientData.lastContact) clientData.lastContact = new Date(clientData.lastContact)
+
+      // Remover campos vazios
+      Object.keys(clientData).forEach(key => {
+        if (clientData[key] === '' || clientData[key] === undefined) {
+          delete clientData[key]
+        }
+      })
+
+      const client = await prisma.client.create({ data: clientData })
       return res.json(client)
     }
 
